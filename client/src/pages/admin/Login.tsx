@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Lock, User } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -23,6 +24,19 @@ const AdminLogin: React.FC = () => {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const { checkAuth } = useAuth();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    const checkAuthentication = async () => {
+      const isAuthenticated = await checkAuth();
+      if (isAuthenticated) {
+        setLocation('/admin');
+      }
+    };
+    
+    checkAuthentication();
+  }, [checkAuth, setLocation]);
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -35,11 +49,18 @@ const AdminLogin: React.FC = () => {
   const loginMutation = useMutation({
     mutationFn: (data: LoginValues) => 
       apiRequest('POST', '/api/auth/login', data),
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Important: Invalidate the auth query to force a refresh
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      
+      // Update auth state with a fresh check
+      await checkAuth();
+      
       toast({
         title: 'Login successful',
         description: 'Welcome to the admin dashboard',
       });
+      
       // Redirect to admin dashboard
       setLocation('/admin');
     },
@@ -49,6 +70,7 @@ const AdminLogin: React.FC = () => {
         description: error instanceof Error ? error.message : 'Invalid credentials',
         variant: 'destructive',
       });
+      setIsLoading(false);
     },
     onSettled: () => {
       setIsLoading(false);

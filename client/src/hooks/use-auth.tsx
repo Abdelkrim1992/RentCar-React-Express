@@ -126,6 +126,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(null);
       setIsLoading(false);
       return false;
+    } finally {
+      // Always ensure loading is set to false
+      setIsLoading(false);
     }
   };
 
@@ -165,6 +168,7 @@ interface ProtectedRouteProps {
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, isLoading, checkAuth } = useAuth();
   const [, setLocation] = useLocation();
+  const [initialCheck, setInitialCheck] = useState(false);
 
   useEffect(() => {
     // Check authentication status when component mounts
@@ -173,12 +177,15 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
       if (!isAuthed) {
         setLocation('/admin/login');
       }
+      // Mark initial check as complete
+      setInitialCheck(true);
     };
     
     verifyAuth();
   }, [checkAuth, setLocation]);
 
-  if (isLoading) {
+  // Only show loading during initial authentication check
+  if (isLoading && !initialCheck) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-16 h-16 border-4 border-t-[#6843EC] border-b-[#D2FF3A] border-l-[#6843EC] border-r-[#D2FF3A] rounded-full animate-spin"></div>
