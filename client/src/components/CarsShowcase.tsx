@@ -2,60 +2,44 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
+import { Link } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
+import { getQueryFn } from '@/lib/queryClient';
 
-interface CarType {
+// Define the car type from our schema
+export interface CarType {
   id: number;
   name: string;
   type: string;
   seats: number;
   power: string;
-  rating: number;
-  price: number;
+  rating: string;
+  price: string;
   image: string;
-  special?: string;
-  special_color?: string;
+  special?: string | null;
+  specialColor?: string | null;
+  description?: string | null;
+  features?: string[] | null;
+  createdAt?: Date | null;
 }
 
-const cars: CarType[] = [
-  {
-    id: 1,
-    name: "Mercedes AMG GT",
-    type: "Sports",
-    seats: 2,
-    power: "523 HP",
-    rating: 4.9,
-    price: 299,
-    image: "https://images.unsplash.com/photo-1617814076668-8dfc6fe3b744?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&h=400&q=80",
-    special: "Premium"
-  },
-  {
-    id: 2,
-    name: "Tesla Model S",
-    type: "Electric",
-    seats: 5,
-    power: "405 mi",
-    rating: 4.8,
-    price: 249,
-    image: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&h=400&q=80",
-    special: "Electric",
-    special_color: "bg-[#6843EC] bg-opacity-90"
-  },
-  {
-    id: 3,
-    name: "Range Rover Sport",
-    type: "SUV",
-    seats: 5,
-    power: "395 HP",
-    rating: 4.7,
-    price: 269,
-    image: "https://images.unsplash.com/photo-1599912027611-484b9fc447af?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&h=400&q=80",
-    special: "Premium"
-  }
-];
+interface ApiResponse {
+  success: boolean;
+  data: CarType[];
+}
 
 const CarsShowcase: React.FC = () => {
   const [selectedFilter, setSelectedFilter] = useState("All Cars");
   const filters = ["All Cars", "SUVs", "Luxury", "Sports", "Electric"];
+  
+  // Fetch cars from API
+  const { data: carsData, isLoading } = useQuery<ApiResponse>({
+    queryKey: ['/api/cars', selectedFilter !== 'All Cars' ? selectedFilter : null],
+    queryFn: getQueryFn({ on401: 'returnNull' }),
+  });
+  
+  // Use data from API response or empty array if undefined
+  const cars = carsData?.data || [];
 
   return (
     <section id="cars" className="py-20">
@@ -89,11 +73,31 @@ const CarsShowcase: React.FC = () => {
           ))}
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {cars.map((car, index) => (
-            <CarCard key={car.id} car={car} index={index} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="w-12 h-12 border-4 border-t-[#6843EC] border-b-[#D2FF3A] border-l-[#6843EC] border-r-[#D2FF3A] rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <>
+            {cars.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-gray-500 mb-4">No cars found in this category.</p>
+                <Button 
+                  onClick={() => setSelectedFilter("All Cars")}
+                  className="bg-black text-white hover:bg-black/90"
+                >
+                  View All Cars
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {cars.map((car: CarType, index: number) => (
+                  <CarCard key={car.id} car={car} index={index} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
         
         <div className="mt-12 text-center">
           <Button 
@@ -101,12 +105,12 @@ const CarsShowcase: React.FC = () => {
             className="px-8 py-6 border-black text-black hover:bg-black hover:text-white font-semibold text-base"
             asChild
           >
-            <a href="#">
+            <Link href="/admin/cars">
               View All Vehicles
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
-            </a>
+            </Link>
           </Button>
         </div>
       </div>
@@ -130,12 +134,17 @@ const CarCard: React.FC<CarCardProps> = ({ car, index }) => {
     >
       <div className="relative">
         <img src={car.image} className="w-full h-64 object-cover" alt={car.name} />
-        <div className={`absolute top-4 left-4 ${car.special_color || 'bg-black bg-opacity-60'} text-white px-3 py-1 rounded-lg text-sm`}>
-          {car.special}
-        </div>
+        {car.special && (
+          <div className={`absolute top-4 left-4 ${car.specialColor || 'bg-black bg-opacity-60'} text-white px-3 py-1 rounded-lg text-sm`}>
+            {car.special}
+          </div>
+        )}
         <div className="absolute inset-0 bg-black bg-opacity-30 opacity-0 transition-opacity hover:opacity-100 flex items-center justify-center">
-          <Button className="px-5 py-2.5 bg-[#D2FF3A] text-black font-semibold hover:bg-[#D2FF3A]/90">
-            View Details
+          <Button 
+            className="px-5 py-2.5 bg-[#D2FF3A] text-black font-semibold hover:bg-[#D2FF3A]/90"
+            asChild
+          >
+            <Link href={`/cars/${car.id}`}>View Details</Link>
           </Button>
         </div>
       </div>
@@ -169,12 +178,22 @@ const CarCard: React.FC<CarCardProps> = ({ car, index }) => {
             <span className="font-darker font-bold text-2xl ml-1">${car.price}</span>
             <span className="text-gray-500">/day</span>
           </div>
-          <Button 
-            className="bg-black text-white hover:bg-black/90"
-            asChild
-          >
-            <a href="#booking">Rent Now</a>
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline"
+              size="sm"
+              className="border-gray-300 hover:border-black"
+              asChild
+            >
+              <Link href={`/cars/${car.id}`}>Details</Link>
+            </Button>
+            <Button 
+              className="bg-black text-white hover:bg-black/90"
+              asChild
+            >
+              <a href="#booking">Rent</a>
+            </Button>
+          </div>
         </div>
       </div>
     </motion.div>
