@@ -3,12 +3,21 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
 import bcrypt from "bcrypt";
-import { storage } from "./storage";
-import { User as SelectUser } from "@shared/schema";
+import { storage } from "./storage.prisma";
+import { User } from "./types";
 
+// Extend Express.User to match our User type
 declare global {
   namespace Express {
-    interface User extends SelectUser {}
+    interface User {
+      id: number;
+      username: string;
+      password: string;
+      isAdmin: boolean;
+      fullName: string | null;
+      email: string | null;
+      createdAt: Date;
+    }
   }
 }
 

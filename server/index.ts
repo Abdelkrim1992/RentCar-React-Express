@@ -2,8 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { runMigrations } from "./supabase";
-import { storage } from "./storage";
+import { prisma } from "./prisma";
+import { storage } from "./storage.prisma";
 
 const app = express();
 app.use(express.json());
@@ -55,13 +55,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Run database migrations
-  try {
-    await runMigrations();
-  } catch (error) {
-    console.error('Failed to run migrations:', error);
-  }
-  
+  // Initialize the application
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

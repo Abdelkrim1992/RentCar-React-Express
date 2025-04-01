@@ -1,13 +1,48 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { 
-  insertBookingSchema, 
-  insertCarSchema, 
-  insertSiteSettingsSchema, 
-  insertUserSchema
-} from "@shared/schema";
+import { storage } from "./storage.prisma";
+import { AppTypes } from "./types";
 import { setupAuth } from "./auth";
+
+// We need to define our own validation schemas to match the Prisma types
+import { z } from "zod";
+
+// Define validation schemas
+const bookingSchema = z.object({
+  pickupLocation: z.string(),
+  returnLocation: z.string(),
+  pickupDate: z.string(),
+  returnDate: z.string(),
+  carType: z.string(),
+  carId: z.number().nullable().optional(),
+  userId: z.number().nullable().optional(),
+  name: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  status: z.string().optional().default('pending'),
+});
+
+const carSchema = z.object({
+  name: z.string(),
+  type: z.string(),
+  seats: z.number(),
+  power: z.string(),
+  rating: z.string(),
+  price: z.string(),
+  image: z.string(),
+  special: z.string().nullable().optional(),
+  specialColor: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  features: z.array(z.string()),
+});
+
+const siteSettingsSchema = z.object({
+  siteName: z.string().optional(),
+  logoColor: z.string().optional(),
+  accentColor: z.string().optional(),
+  logoText: z.string().optional(),
+  customLogo: z.string().nullable().optional(),
+});
 
 // Middleware to check if user is admin
 const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
@@ -41,7 +76,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/bookings", async (req, res) => {
     try {
       // Validate the request body using the booking schema
-      const bookingData = insertBookingSchema.parse(req.body);
+      const bookingData = bookingSchema.parse(req.body);
       
       // Save the booking to storage
       const booking = await storage.createBooking(bookingData);
@@ -202,7 +237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new car (admin access)
   app.post("/api/cars", isAdmin, async (req, res) => {
     try {
-      const carData = insertCarSchema.parse(req.body);
+      const carData = carSchema.parse(req.body);
       const car = await storage.createCar(carData);
       
       res.status(201).json({
@@ -299,7 +334,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update site settings (admin access)
   app.put("/api/settings", isAdmin, async (req, res) => {
     try {
-      const settingsData = insertSiteSettingsSchema.partial().parse(req.body);
+      const settingsData = siteSettingsSchema.parse(req.body);
       const settings = await storage.updateSiteSettings(settingsData);
       
       res.status(200).json({
