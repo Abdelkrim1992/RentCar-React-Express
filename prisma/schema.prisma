@@ -7,21 +7,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model
 model User {
   id        Int       @id @default(autoincrement())
-  username  String    @unique
+  username  String    @unique(map: "users_username_unique")
   password  String
   isAdmin   Boolean   @default(false) @map("is_admin")
   fullName  String?   @map("full_name")
   email     String?
-  createdAt DateTime  @default(now()) @map("created_at")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   bookings  Booking[]
 
   @@map("users")
 }
 
-// Car model
 model Car {
   id           Int       @id @default(autoincrement())
   name         String
@@ -35,13 +33,12 @@ model Car {
   specialColor String?   @map("special_color")
   description  String?
   features     String[]
-  createdAt    DateTime  @default(now()) @map("created_at")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   bookings     Booking[]
 
   @@map("cars")
 }
 
-// Booking model
 model Booking {
   id             Int      @id @default(autoincrement())
   pickupLocation String   @map("pickup_location")
@@ -55,14 +52,13 @@ model Booking {
   email          String?
   phone          String?
   status         String   @default("pending")
-  createdAt      DateTime @default(now()) @map("created_at")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
   car            Car?     @relation(fields: [carId], references: [id])
   user           User?    @relation(fields: [userId], references: [id])
 
   @@map("bookings")
 }
 
-// Site Settings model
 model SiteSettings {
   id          Int      @id @default(autoincrement())
   siteName    String   @default("Ether") @map("site_name")
@@ -70,17 +66,15 @@ model SiteSettings {
   accentColor String   @default("#D2FF3A") @map("accent_color")
   logoText    String   @default("ETHER") @map("logo_text")
   customLogo  String?  @map("custom_logo")
-  updatedAt   DateTime @default(now()) @map("updated_at")
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
 
   @@map("site_settings")
 }
 
-// Session model - for auth sessions
-model Session {
-  id        String   @id
-  sid       String   @unique
-  data      String
-  expiresAt DateTime @map("expires_at")
+model session {
+  sid    String   @id @db.VarChar
+  sess   Json     @db.Json
+  expire DateTime @db.Timestamp(6)
 
-  @@map("sessions")
+  @@index([expire], map: "IDX_session_expire")
 }
