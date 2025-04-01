@@ -36,11 +36,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      const response = await apiRequest<AuthResponse>('POST', '/api/auth/login', { username, password });
-      if (response && response.success) {
-        setUser(response.data);
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ username, password })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Login failed: ${response.statusText}`);
+      }
+      
+      const data: AuthResponse = await response.json();
+      
+      if (data && data.success) {
+        setUser(data.data);
         return true;
       }
+      
       return false;
     } catch (error) {
       console.error('Login error:', error);
@@ -49,27 +65,63 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
-    apiRequest<{success: boolean; message: string}>('POST', '/api/auth/logout')
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+      }
+    })
       .then(() => {
         setUser(null);
         setLocation('/admin/login');
       })
-      .catch(console.error);
+      .catch((error) => {
+        console.error('Logout error:', error);
+        // Still redirect to login even if there was an error
+        setUser(null);
+        setLocation('/admin/login');
+      });
   };
 
   const checkAuth = async (): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const response = await apiRequest<AuthResponse>('GET', '/api/auth/me');
-      if (response && response.success) {
-        setUser(response.data);
+      // Make the auth check request with error handling
+      const response = await fetch('/api/auth/me', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      
+      // If unauthorized, just return false - no need to log error
+      if (response.status === 401) {
+        setUser(null);
+        setIsLoading(false);
+        return false;
+      }
+      
+      // For other errors, throw so they're caught by our catch block
+      if (!response.ok) {
+        throw new Error(`Auth check failed: ${response.statusText}`);
+      }
+      
+      // Parse the JSON response
+      const data: AuthResponse = await response.json();
+      
+      if (data && data.success) {
+        setUser(data.data);
         setIsLoading(false);
         return true;
       }
+      
       setUser(null);
       setIsLoading(false);
       return false;
     } catch (error) {
+      // Only log real errors, not 401s
       console.error('Check auth error:', error);
       setUser(null);
       setIsLoading(false);

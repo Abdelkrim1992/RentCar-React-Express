@@ -29,7 +29,10 @@ const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
   // Check if user is authenticated and is an admin
   const user = req.session?.user;
   
-  if (user && user.isAdmin) {
+  // Ensure we evaluate isAdmin as a boolean
+  const isUserAdmin = user?.isAdmin === null ? false : !!user?.isAdmin;
+  
+  if (user && isUserAdmin) {
     return next();
   }
   
@@ -327,9 +330,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Add route to check if user is authenticated
   app.get("/api/auth/me", (req, res) => {
     if (req.session.user) {
+      // Ensure isAdmin is a boolean value
+      const userData = {
+        ...req.session.user,
+        isAdmin: req.session.user.isAdmin === null ? false : !!req.session.user.isAdmin
+      };
+      
       return res.status(200).json({
         success: true,
-        data: req.session.user
+        data: userData
       });
     }
     
@@ -401,7 +410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.user = {
         id: user.id,
         username: user.username,
-        isAdmin: user.isAdmin
+        isAdmin: user.isAdmin === null ? false : user.isAdmin
       };
       
       res.status(200).json({
@@ -410,7 +419,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: {
           id: user.id,
           username: user.username,
-          isAdmin: user.isAdmin,
+          isAdmin: user.isAdmin === null ? false : user.isAdmin,
           fullName: user.fullName,
           email: user.email
         }

@@ -30,11 +30,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       {/* Sidebar */}
       <aside className="hidden md:flex w-64 flex-col bg-white border-r border-gray-200">
         <div className="p-4 border-b border-gray-200">
-          <Link href="/">
-            <a className="font-turret text-2xl font-bold tracking-wider text-black">
-              <span className="text-[#6843EC]">ETHER</span><span className="text-[#D2FF3A]">.</span>
-              <span className="text-sm text-gray-500 ml-2">Admin</span>
-            </a>
+          <Link href="/" className="font-turret text-2xl font-bold tracking-wider text-black inline-block">
+            <span className="text-[#6843EC]">ETHER</span><span className="text-[#D2FF3A]">.</span>
+            <span className="text-sm text-gray-500 ml-2">Admin</span>
           </Link>
         </div>
         
@@ -73,10 +71,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       
       {/* Mobile header */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-10">
-        <Link href="/">
-          <a className="font-turret text-2xl font-bold tracking-wider text-black">
-            <span className="text-[#6843EC]">ETHER</span><span className="text-[#D2FF3A]">.</span>
-          </a>
+        <Link href="/" className="font-turret text-2xl font-bold tracking-wider text-black">
+          <span className="text-[#6843EC]">ETHER</span><span className="text-[#D2FF3A]">.</span>
         </Link>
         
         <div className="flex items-center space-x-2">
@@ -123,15 +119,13 @@ interface NavLinkProps {
 
 const NavLink: React.FC<NavLinkProps> = ({ href, icon, label, isActive }) => {
   return (
-    <Link href={href}>
-      <a className={`flex items-center px-3 py-2 rounded-md ${
-        isActive 
-          ? 'bg-[#6843EC]/10 text-[#6843EC]' 
-          : 'text-gray-600 hover:bg-gray-100'
-      }`}>
-        <span className="mr-2">{icon}</span>
-        <span>{label}</span>
-      </a>
+    <Link href={href} className={`flex items-center px-3 py-2 rounded-md ${
+      isActive 
+        ? 'bg-[#6843EC]/10 text-[#6843EC]' 
+        : 'text-gray-600 hover:bg-gray-100'
+    }`}>
+      <span className="mr-2">{icon}</span>
+      <span>{label}</span>
     </Link>
   );
 };
