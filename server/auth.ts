@@ -1,45 +1,54 @@
+import { Express, Request, Response, NextFunction } from "express";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
-import session from "express-session";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import { storage } from "./storage.prisma";
 import { User } from "./types";
 
-// Extend Express.User to match our User type
-declare global {
-  namespace Express {
-    interface User {
-      id: number;
-      username: string;
-      password: string;
-      isAdmin: boolean;
-      fullName: string | null;
-      email: string | null;
-      createdAt: Date;
-    }
+// JWT secret key
+const JWT_SECRET = "jwt-secret-key-for-dev-only";
+const TOKEN_EXPIRY = "24h";
+
+// Middleware to authenticate token
+export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+  // Get auth header
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
+  
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: "Access token required"
+    });
   }
-}
+  
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({
+        success: false,
+        message: "Invalid or expired token"
+      });
+    }
+    
+    // Add the user info to the request
+    (req as any).user = user;
+    next();
+  });
+};
+
+// Generate token for a user
+const generateToken = (user: User): string => {
+  // Don't include password in the token
+  const { password, ...userWithoutPassword } = user;
+  return jwt.sign(userWithoutPassword, JWT_SECRET, { expiresIn: TOKEN_EXPIRY });
+};
 
 export function setupAuth(app: Express) {
-  const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "secret-key-for-dev-only",
-    resave: false,
-    saveUninitialized: false,
-    store: storage.sessionStore,
-    cookie: {
-      maxAge: 1000 * 60 * 60 * 24, // 1 day
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-    }
-  };
-
-  app.set("trust proxy", 1);
-  app.use(session(sessionSettings));
+  // Initialize passport (still used for the local strategy)
   app.use(passport.initialize());
-  app.use(passport.session());
-
-  // Setup LocalStrategy with bcrypt password comparison
+  
+  // Set up the local strategy for username/password validation
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
@@ -60,24 +69,11 @@ export function setupAuth(app: Express) {
       } catch (error) {
         return done(error);
       }
-    }),
+    })
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
-  passport.deserializeUser(async (id: number, done) => {
-    try {
-      const user = await storage.getUser(id);
-      if (!user) {
-        return done(null, false);
-      }
-      done(null, user);
-    } catch (error) {
-      done(error);
-    }
-  });
-
   // Registration endpoint
-  app.post("/api/auth/register", async (req, res, next) => {
+  app.post("/api/auth/register", async (req, res) => {
     try {
       const { username, password, fullName, email } = req.body;
       
@@ -103,16 +99,15 @@ export function setupAuth(app: Express) {
         isAdmin: false // Only manually set users to admin
       });
       
-      // Log the user in
-      req.login(user, (err) => {
-        if (err) return next(err);
-        
-        // Return success without sensitive info
-        const { password, ...userWithoutPassword } = user;
-        return res.status(201).json({
-          success: true,
-          data: userWithoutPassword
-        });
+      // Generate token
+      const token = generateToken(user);
+      
+      // Return user without password and token
+      const { password: _, ...userWithoutPassword } = user;
+      return res.status(201).json({
+        success: true,
+        data: userWithoutPassword,
+        token
       });
     } catch (error) {
       console.error("Error during registration:", error);
@@ -125,7 +120,7 @@ export function setupAuth(app: Express) {
 
   // Login endpoint
   app.post("/api/auth/login", (req, res, next) => {
-    passport.authenticate("local", (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
+    passport.authenticate("local", (err: Error | null, user: User | false, info: { message: string } | undefined) => {
       if (err) {
         return next(err);
       }
@@ -137,48 +132,55 @@ export function setupAuth(app: Express) {
         });
       }
       
-      req.login(user, (loginErr) => {
-        if (loginErr) {
-          return next(loginErr);
-        }
-        
-        // Remove sensitive data before sending
-        const { password, ...userWithoutPassword } = user;
-        return res.status(200).json({
-          success: true,
-          data: userWithoutPassword
-        });
+      // User authenticated successfully, generate token
+      const token = generateToken(user);
+      
+      // Remove sensitive data before sending
+      const { password, ...userWithoutPassword } = user;
+      return res.status(200).json({
+        success: true,
+        data: userWithoutPassword,
+        token
       });
     })(req, res, next);
   });
 
-  // Logout endpoint
-  app.post("/api/auth/logout", (req, res, next) => {
-    req.logout((err) => {
-      if (err) {
-        return next(err);
-      }
-      res.status(200).json({
-        success: true,
-        message: "Logged out successfully"
-      });
+  // No need for a server-side logout with JWT, client just removes the token
+  app.post("/api/auth/logout", (_req, res) => {
+    res.status(200).json({
+      success: true,
+      message: "Logged out successfully"
     });
   });
 
-  // Current user endpoint
-  app.get("/api/auth/me", (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({
+  // Current user endpoint - protected by token auth
+  app.get("/api/auth/me", authenticateToken, async (req, res) => {
+    try {
+      // Get the user ID from the token
+      const userId = (req as any).user.id;
+      
+      // Get the latest user data from database
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found"
+        });
+      }
+      
+      // Remove sensitive data before sending
+      const { password, ...userWithoutPassword } = user;
+      res.json({
+        success: true,
+        data: userWithoutPassword
+      });
+    } catch (error) {
+      console.error("Error getting current user:", error);
+      res.status(500).json({
         success: false,
-        message: "Not authenticated"
+        message: "Internal server error"
       });
     }
-    
-    // Remove sensitive data before sending
-    const { password, ...userWithoutPassword } = req.user;
-    res.json({
-      success: true,
-      data: userWithoutPassword
-    });
   });
 }

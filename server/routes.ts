@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.prisma";
 import { AppTypes } from "./types";
-import { setupAuth } from "./auth";
+import { setupAuth, authenticateToken } from "./auth";
 
 // We need to define our own validation schemas to match the Prisma types
 import { z } from "zod";
@@ -46,25 +46,38 @@ const siteSettingsSchema = z.object({
 
 // Middleware to check if user is admin
 const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
-  // Check if user is authenticated and is an admin
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({
+  try {
+    // First verify the token is valid
+    authenticateToken(req, res, () => {
+      // Token is valid, now check if user is an admin
+      const user = (req as any).user;
+      
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Not authenticated'
+        });
+      }
+      
+      // Ensure we evaluate isAdmin as a boolean
+      const isUserAdmin = user.isAdmin === null ? false : !!user.isAdmin;
+      
+      if (isUserAdmin) {
+        return next();
+      }
+      
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized: Admin access required'
+      });
+    });
+  } catch (error) {
+    console.error('Error in isAdmin middleware:', error);
+    return res.status(500).json({
       success: false,
-      message: 'Not authenticated'
+      message: 'Internal server error'
     });
   }
-  
-  // Ensure we evaluate isAdmin as a boolean
-  const isUserAdmin = req.user.isAdmin === null ? false : !!req.user.isAdmin;
-  
-  if (isUserAdmin) {
-    return next();
-  }
-  
-  return res.status(403).json({
-    success: false,
-    message: 'Unauthorized: Admin access required'
-  });
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {

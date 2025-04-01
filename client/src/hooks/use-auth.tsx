@@ -4,6 +4,7 @@ import { apiRequest } from '@/lib/queryClient';
 
 // LocalStorage keys
 const USER_STORAGE_KEY = 'ether_auth_user';
+const TOKEN_STORAGE_KEY = 'ether_auth_token';
 
 interface User {
   id: number;
@@ -14,6 +15,7 @@ interface User {
 interface AuthResponse {
   success: boolean;
   data: User;
+  token?: string;
   message?: string;
 }
 
@@ -24,6 +26,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   checkAuth: () => Promise<boolean>;
+  getAuthToken: () => string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,11 +44,27 @@ const saveUserToStorage = (user: User): void => {
   }
 };
 
+const saveTokenToStorage = (token: string): void => {
+  try {
+    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+  } catch (error) {
+    console.error('Error saving token to localStorage:', error);
+  }
+};
+
 const removeUserFromStorage = (): void => {
   try {
     localStorage.removeItem(USER_STORAGE_KEY);
   } catch (error) {
     console.error('Error removing user from localStorage:', error);
+  }
+};
+
+const removeTokenFromStorage = (): void => {
+  try {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+  } catch (error) {
+    console.error('Error removing token from localStorage:', error);
   }
 };
 
@@ -59,6 +78,18 @@ const getUserFromStorage = (): User | null => {
   }
 };
 
+const getTokenFromStorage = (): string | null => {
+  try {
+    return localStorage.getItem(TOKEN_STORAGE_KEY);
+  } catch (error) {
+    console.error('Error getting token from localStorage:', error);
+    return null;
+  }
+};
+
+// Use the apiRequest function directly
+// The queryClient.ts version already handles the token
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Initialize user state from localStorage if available
   const [user, setUser] = useState<User | null>(() => getUserFromStorage());
@@ -66,21 +97,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [, setLocation] = useLocation();
 
   // Update user state and localStorage
-  const updateUser = (newUser: User | null) => {
+  const updateUser = (newUser: User | null, token?: string) => {
     setUser(newUser);
     if (newUser) {
       saveUserToStorage(newUser);
+      if (token) {
+        saveTokenToStorage(token);
+      }
     } else {
       removeUserFromStorage();
+      removeTokenFromStorage();
     }
+  };
+
+  const getAuthToken = (): string | null => {
+    return getTokenFromStorage();
   };
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
       const data: AuthResponse = await apiRequest('POST', '/api/auth/login', { username, password });
       
-      if (data && data.success) {
-        updateUser(data.data);
+      if (data && data.success && data.token) {
+        updateUser(data.data, data.token);
         return true;
       }
       
@@ -91,33 +130,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = async () => {
-    try {
-      await apiRequest('POST', '/api/auth/logout');
-      updateUser(null);
-      setLocation('/admin/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Still redirect to login even if there was an error
-      updateUser(null);
-      setLocation('/admin/login');
-    }
+  const logout = () => {
+    // No need to call the server for JWT logout - just remove from client
+    updateUser(null);
+    setLocation('/admin/login');
   };
 
   const checkAuth = async (): Promise<boolean> => {
     setIsLoading(true);
     
-    // First check if we have user data in localStorage
+    // First check if we have a token in localStorage
+    const token = getTokenFromStorage();
     const storedUser = getUserFromStorage();
     
-    if (storedUser) {
-      // Verify the stored user with the server
+    if (token && storedUser) {
+      // Token will be automatically included in the request by queryClient.ts
       try {
         const data: AuthResponse = await apiRequest('GET', '/api/auth/me');
         
         if (data && data.success) {
           // Update with the latest user data from server
-          updateUser(data.data);
+          updateUser(data.data, token); // Keep using the same token
           setIsLoading(false);
           return true;
         }
@@ -127,39 +160,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setIsLoading(false);
         return false;
       } catch (error) {
-        // If server error or 401, clear localStorage
+        // If server error or 401/403, clear localStorage
         console.error('Verify auth error:', error);
         updateUser(null);
         setIsLoading(false);
         return false;
       }
     } else {
-      // No stored user, check with server
-      try {
-        const data: AuthResponse = await apiRequest('GET', '/api/auth/me');
-        
-        if (data && data.success) {
-          updateUser(data.data);
-          setIsLoading(false);
-          return true;
-        }
-        
-        setIsLoading(false);
-        return false;
-      } catch (apiError) {
-        // Handle 401 separately (not authenticated)
-        if (apiError instanceof Error && apiError.message.includes('401')) {
-          updateUser(null);
-          setIsLoading(false);
-          return false;
-        }
-        
-        // Handle other errors
-        console.error('Check auth error:', apiError);
-        updateUser(null);
-        setIsLoading(false);
-        return false;
-      }
+      // No stored token, user is not authenticated
+      updateUser(null);
+      setIsLoading(false);
+      return false;
     }
   };
 
@@ -171,11 +182,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: !!user,
+        isAuthenticated: !!user && !!getTokenFromStorage(),
         isLoading,
         login,
         logout,
         checkAuth,
+        getAuthToken,
       }}
     >
       {children}
