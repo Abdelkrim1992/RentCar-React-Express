@@ -169,6 +169,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, isLoading, checkAuth } = useAuth();
   const [, setLocation] = useLocation();
   const [initialCheck, setInitialCheck] = useState(false);
+  const [loginTransition, setLoginTransition] = useState(true);
 
   useEffect(() => {
     // Check authentication status when component mounts
@@ -179,13 +180,20 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
       }
       // Mark initial check as complete
       setInitialCheck(true);
+      // Give a slight delay to ensure smooth transition
+      setTimeout(() => {
+        setLoginTransition(false);
+      }, 500);
     };
     
     verifyAuth();
   }, [checkAuth, setLocation]);
 
-  // Only show loading during initial authentication check
-  if (isLoading && !initialCheck) {
+  // Show loading during:
+  // 1. Initial authentication check
+  // 2. Any loading state before initial complete check
+  // 3. Login transition (first 500ms after auth to avoid flicker)
+  if (isLoading || !initialCheck || loginTransition) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-16 h-16 border-4 border-t-[#6843EC] border-b-[#D2FF3A] border-l-[#6843EC] border-r-[#D2FF3A] rounded-full animate-spin"></div>

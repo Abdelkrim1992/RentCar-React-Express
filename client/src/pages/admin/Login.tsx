@@ -61,8 +61,12 @@ const AdminLogin: React.FC = () => {
         description: 'Welcome to the admin dashboard',
       });
       
-      // Redirect to admin dashboard
-      setLocation('/admin');
+      // Delay the redirect to ensure loading state is properly handled
+      // This gives time for the other components to update their state
+      setTimeout(() => {
+        // Redirect to admin dashboard
+        setLocation('/admin');
+      }, 300);
     },
     onError: (error) => {
       toast({
@@ -73,7 +77,10 @@ const AdminLogin: React.FC = () => {
       setIsLoading(false);
     },
     onSettled: () => {
-      setIsLoading(false);
+      // Keep loading true for successful login until redirect
+      if (loginMutation.isError) {
+        setIsLoading(false);
+      }
     }
   });
 

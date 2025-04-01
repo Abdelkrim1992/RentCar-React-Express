@@ -1,72 +1,65 @@
-import { createClient } from '@supabase/supabase-js';
 import { drizzle } from 'drizzle-orm/postgres-js';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import * as schema from '../shared/schema';
-import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import bcrypt from 'bcrypt';
 
-// Supabase client setup
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_KEY || '';
-
-// Create the Supabase client
-export const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Use Drizzle with Postgres for direct database access
+// Database connection
 const connectionString = process.env.DATABASE_URL || '';
-console.log('Database connection string available:', !!connectionString);
+if (!connectionString) {
+  console.error('DATABASE_URL environment variable not set');
+  process.exit(1);
+}
 
-// Create a postgres client for migrations
-const migrationClient = postgres(connectionString, { max: 1 });
-
-// Create a postgres client for queries
-const queryClient = postgres(connectionString);
-export const db = drizzle(queryClient, { schema });
-
-// Function to run migrations with forced schema creation
-export async function runMigrations() {
-  if (!connectionString) {
-    console.error('DATABASE_URL environment variable not set');
-    return;
-  }
+async function main() {
+  console.log('Starting database migration...');
+  
+  // Create postgres clients
+  const migrationClient = postgres(connectionString, { max: 1 });
+  const queryClient = postgres(connectionString);
+  const db = drizzle(queryClient, { schema });
   
   try {
-    console.log('Running database migrations...');
-    
     // Create schema if it doesn't exist
     try {
       await migrationClient`CREATE SCHEMA IF NOT EXISTS drizzle`;
+      console.log('Drizzle schema created or already exists');
     } catch (err) {
       console.error('Error creating schema:', err);
     }
     
-    // Run migrations
-    const drizzleInstance = drizzle(migrationClient);
-    await migrate(drizzleInstance, { 
-      migrationsFolder: 'migrations',
+    // Run migrations with force flag to ensure tables are created
+    console.log('Running migrations...');
+    await migrate(drizzle(migrationClient), { 
+      migrationsFolder: 'migrations'
     });
-    
     console.log('Migrations completed successfully');
     
-    // Create sample data if needed
-    await seedSampleData();
+    // Check and create sample data
+    await seedSampleData(db);
     
-    // Seed the admin user if not exists
-    await seedAdminUser();
+    // Check and create admin user
+    await seedAdminUser(db);
+    
+    console.log('Migration process completed successfully');
   } catch (error) {
-    console.error('Error running migrations:', error);
-    throw error; // Re-throw to ensure we see the full error
+    console.error('Error during migration:', error);
+    process.exit(1);
+  } finally {
+    // Close the database connections
+    await migrationClient.end();
+    await queryClient.end();
   }
 }
 
-// Function to seed sample data for testing
-async function seedSampleData() {
+// Function to seed sample data
+async function seedSampleData(db: any) {
   try {
     // Check if we already have cars in the database
     const carCount = await db.query.cars.findMany();
     
     if (carCount.length > 0) {
-      console.log('Sample car data already exists');
+      console.log('Sample car data already exists, skipping seed');
       return;
     }
     
@@ -126,16 +119,16 @@ async function seedSampleData() {
   }
 }
 
-// Function to seed the admin user with bcrypt hashed password
-async function seedAdminUser() {
+// Function to seed the admin user
+async function seedAdminUser(db: any) {
   try {
     // Check if admin user already exists
     const existingAdmin = await db.query.users.findFirst({
-      where: (users, { eq }) => eq(users.username, 'admin')
+      where: (users: any, { eq }: any) => eq(users.username, 'admin')
     });
     
     if (existingAdmin) {
-      console.log('Admin user already exists');
+      console.log('Admin user already exists, skipping creation');
       return;
     }
     
@@ -160,3 +153,6 @@ async function seedAdminUser() {
     console.error('Error seeding admin user:', error);
   }
 }
+
+// Run the migration
+main().catch(console.error);
