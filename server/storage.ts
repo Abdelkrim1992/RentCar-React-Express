@@ -6,6 +6,9 @@ import {
 } from "@shared/schema";
 import { db, supabase } from './supabase';
 import { eq } from 'drizzle-orm';
+import connectPg from "connect-pg-simple";
+import session from "express-session";
+import memorystore from "memorystore";
 
 // Extended interface with all CRUD methods needed for the application
 export interface IStorage {
@@ -33,6 +36,9 @@ export interface IStorage {
   // Site settings operations
   getSiteSettings(): Promise<SiteSettings | undefined>;
   updateSiteSettings(settings: Partial<InsertSiteSettings>): Promise<SiteSettings | undefined>;
+  
+  // Session store
+  sessionStore: any;
 }
 
 // Memory storage implementation (same as before but with extended functionality)
@@ -44,6 +50,7 @@ export class MemStorage implements IStorage {
   currentUserId: number;
   currentBookingId: number;
   currentCarId: number;
+  sessionStore: any;
 
   constructor() {
     this.users = new Map();
@@ -52,6 +59,12 @@ export class MemStorage implements IStorage {
     this.currentUserId = 1;
     this.currentBookingId = 1;
     this.currentCarId = 1;
+    
+    // Create memory session store
+    const MemoryStore = memorystore(session);
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000, // prune expired entries every 24h
+    });
     
     // Default site settings
     this.settings = {
@@ -244,121 +257,220 @@ export class MemStorage implements IStorage {
   }
 }
 
-// Supabase/Drizzle-based storage implementation (uncomment when ready to use)
-/*
+// Database storage implementation with Drizzle ORM
+const PostgresSessionStore = connectPg(session);
+
 export class DatabaseStorage implements IStorage {
+  sessionStore: any;
+  
+  constructor() {
+    // Create PostgreSQL session store
+    this.sessionStore = new PostgresSessionStore({
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: true,
+    });
+  }
+  
   // User operations
   async getUser(id: number): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.id, id));
-    return result[0];
+    try {
+      const result = await db.select().from(users).where(eq(users.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('Error getting user by ID:', error);
+      return undefined;
+    }
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.username, username));
-    return result[0];
+    try {
+      const result = await db.select().from(users).where(eq(users.username, username));
+      return result[0];
+    } catch (error) {
+      console.error('Error getting user by username:', error);
+      return undefined;
+    }
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const result = await db.insert(users).values(user).returning();
-    return result[0];
+    try {
+      const result = await db.insert(users).values(user).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
   }
   
   async getUsersByAdmin(isAdmin: boolean): Promise<User[]> {
-    const result = await db.select().from(users).where(eq(users.isAdmin, isAdmin));
-    return result;
+    try {
+      const result = await db.select().from(users).where(eq(users.isAdmin, isAdmin));
+      return result;
+    } catch (error) {
+      console.error('Error getting users by admin status:', error);
+      return [];
+    }
   }
   
   // Booking operations
   async createBooking(booking: InsertBooking): Promise<Booking> {
-    const result = await db.insert(bookings).values(booking).returning();
-    return result[0];
+    try {
+      const result = await db.insert(bookings).values(booking).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      throw error;
+    }
   }
 
   async getAllBookings(): Promise<Booking[]> {
-    return await db.select().from(bookings);
+    try {
+      return await db.select().from(bookings);
+    } catch (error) {
+      console.error('Error getting all bookings:', error);
+      return [];
+    }
   }
   
   async getBookingById(id: number): Promise<Booking | undefined> {
-    const result = await db.select().from(bookings).where(eq(bookings.id, id));
-    return result[0];
+    try {
+      const result = await db.select().from(bookings).where(eq(bookings.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('Error getting booking by ID:', error);
+      return undefined;
+    }
   }
   
   async getBookingsByUserId(userId: number): Promise<Booking[]> {
-    const result = await db.select().from(bookings).where(eq(bookings.userId, userId));
-    return result;
+    try {
+      const result = await db.select().from(bookings).where(eq(bookings.userId, userId));
+      return result;
+    } catch (error) {
+      console.error('Error getting bookings by user ID:', error);
+      return [];
+    }
   }
   
   async updateBookingStatus(id: number, status: string): Promise<Booking | undefined> {
-    const result = await db.update(bookings)
-      .set({ status })
-      .where(eq(bookings.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await db.update(bookings)
+        .set({ status })
+        .where(eq(bookings.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error updating booking status:', error);
+      return undefined;
+    }
   }
   
   // Car operations
   async createCar(car: InsertCar): Promise<Car> {
-    const result = await db.insert(cars).values(car).returning();
-    return result[0];
+    try {
+      const result = await db.insert(cars).values(car).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating car:', error);
+      throw error;
+    }
   }
   
   async getAllCars(): Promise<Car[]> {
-    return await db.select().from(cars);
+    try {
+      return await db.select().from(cars);
+    } catch (error) {
+      console.error('Error getting all cars:', error);
+      return [];
+    }
   }
   
   async getCarById(id: number): Promise<Car | undefined> {
-    const result = await db.select().from(cars).where(eq(cars.id, id));
-    return result[0];
+    try {
+      const result = await db.select().from(cars).where(eq(cars.id, id));
+      return result[0];
+    } catch (error) {
+      console.error('Error getting car by ID:', error);
+      return undefined;
+    }
   }
   
   async getCarsByType(type: string): Promise<Car[]> {
-    if (type === 'All Cars') {
-      return this.getAllCars();
+    try {
+      if (type === 'All Cars') {
+        return this.getAllCars();
+      }
+      const result = await db.select().from(cars).where(eq(cars.type, type));
+      return result;
+    } catch (error) {
+      console.error('Error getting cars by type:', error);
+      return [];
     }
-    const result = await db.select().from(cars).where(eq(cars.type, type));
-    return result;
   }
   
   async updateCar(id: number, car: Partial<InsertCar>): Promise<Car | undefined> {
-    const result = await db.update(cars)
-      .set(car)
-      .where(eq(cars.id, id))
-      .returning();
-    return result[0];
+    try {
+      const result = await db.update(cars)
+        .set(car)
+        .where(eq(cars.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error updating car:', error);
+      return undefined;
+    }
   }
   
   async deleteCar(id: number): Promise<boolean> {
-    const result = await db.delete(cars).where(eq(cars.id, id)).returning();
-    return result.length > 0;
+    try {
+      const result = await db.delete(cars).where(eq(cars.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting car:', error);
+      return false;
+    }
   }
   
   // Site settings operations
   async getSiteSettings(): Promise<SiteSettings | undefined> {
-    const result = await db.select().from(siteSettings);
-    return result[0];
+    try {
+      const result = await db.select().from(siteSettings);
+      return result[0];
+    } catch (error) {
+      console.error('Error getting site settings:', error);
+      return undefined;
+    }
   }
   
   async updateSiteSettings(settings: Partial<InsertSiteSettings>): Promise<SiteSettings | undefined> {
-    const existingSettings = await this.getSiteSettings();
-    
-    if (existingSettings) {
-      const result = await db.update(siteSettings)
-        .set({ ...settings, updatedAt: new Date() })
-        .where(eq(siteSettings.id, existingSettings.id))
-        .returning();
-      return result[0];
-    } else {
-      const result = await db.insert(siteSettings)
-        .values({ ...settings, updatedAt: new Date() })
-        .returning();
-      return result[0];
+    try {
+      const existingSettings = await this.getSiteSettings();
+      
+      if (existingSettings) {
+        const result = await db.update(siteSettings)
+          .set({ ...settings, updatedAt: new Date() })
+          .where(eq(siteSettings.id, existingSettings.id))
+          .returning();
+        return result[0];
+      } else {
+        const result = await db.insert(siteSettings)
+          .values({ ...settings, updatedAt: new Date() })
+          .returning();
+        return result[0];
+      }
+    } catch (error) {
+      console.error('Error updating site settings:', error);
+      return undefined;
     }
   }
 }
-*/
 
 // For now, use the in-memory storage for development
-export const storage = new MemStorage();
+// Check if we should use database or memory storage
+// If DATABASE_URL is set, we'll use the database
+const useDatabase = !!process.env.DATABASE_URL;
+
+export const storage = useDatabase ? new DatabaseStorage() : new MemStorage();
 
 // When ready to use Supabase, uncomment this line:
 // export const storage = new DatabaseStorage();

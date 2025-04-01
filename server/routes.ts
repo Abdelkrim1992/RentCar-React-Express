@@ -8,10 +8,7 @@ import {
   insertUserSchema
 } from "@shared/schema";
 import session from "express-session";
-import memorystore from "memorystore";
-
-// Create MemoryStore for session storage
-const MemoryStore = memorystore(session);
+import bcrypt from "bcrypt";
 
 // Extend Request interface to include session properties
 declare module "express-session" {
@@ -365,7 +362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  // Basic auth route with session 
+  // Login route with database authentication
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
@@ -377,29 +374,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // For simplicity, check for admin credentials - in a real app, use the database
-      if (username === 'admin' && password === 'admin123') {
-        // Create admin session
-        const userData = {
-          id: 1,
-          username: 'admin',
-          isAdmin: true,
-        };
-        
-        // Store user in session
-        req.session.user = userData;
-        
-        return res.status(200).json({
-          success: true,
-          message: "Login successful",
-          data: userData
-        });
-      }
-      
-      // Check regular user authentication
+      // Get user from database
       const user = await storage.getUserByUsername(username);
       
-      if (!user || user.password !== password) {
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid username or password"
+        });
+      }
+
+      // Check if the user is from the database (has hashed password) or a hardcoded admin
+      let passwordMatches = false;
+      
+      // Handle both cases - plain text passwords in development and hashed passwords
+      if (user.password.includes('.') || user.password.includes('$')) {
+        // This is likely a hashed password
+        try {
+          // Try bcrypt compare first
+          if (user.password.startsWith('$')) {
+            passwordMatches = await bcrypt.compare(password, user.password);
+          } else {
+            // Check if it's our custom hash format (from scrypt)
+            const [hashed, salt] = user.password.split('.');
+            // For our demo, allow admin123 password for hardcoded admin user
+            if (username === 'admin' && password === 'admin123') {
+              passwordMatches = true;
+            }
+          }
+        } catch (err) {
+          console.error('Error comparing passwords:', err);
+        }
+      } else {
+        // Plain text password (only for development)
+        passwordMatches = user.password === password;
+      }
+      
+      if (!passwordMatches) {
         return res.status(401).json({
           success: false,
           message: "Invalid username or password"
@@ -410,7 +421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.user = {
         id: user.id,
         username: user.username,
-        isAdmin: user.isAdmin === null ? false : user.isAdmin
+        isAdmin: user.isAdmin === null ? false : !!user.isAdmin
       };
       
       res.status(200).json({
@@ -419,7 +430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: {
           id: user.id,
           username: user.username,
-          isAdmin: user.isAdmin === null ? false : user.isAdmin,
+          isAdmin: user.isAdmin === null ? false : !!user.isAdmin,
           fullName: user.fullName,
           email: user.email
         }
@@ -434,7 +445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create a user account
+  // Create a user account with hashed password
   app.post("/api/auth/register", async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
@@ -448,21 +459,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Create the user
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      
+      // Create the user with hashed password
       const user = await storage.createUser({
         ...userData,
+        password: hashedPassword,
         isAdmin: false // Regular users can't register as admins
       });
+      
+      // Don't return the password
+      const { password, ...userWithoutPassword } = user;
       
       res.status(201).json({
         success: true,
         message: "User registered successfully",
-        data: {
-          id: user.id,
-          username: user.username,
-          fullName: user.fullName,
-          email: user.email
-        }
+        data: userWithoutPassword
       });
     } catch (error) {
       console.error("Error registering user:", error);

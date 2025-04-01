@@ -1,22 +1,18 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
-import memorystore from "memorystore";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-
-// Create MemoryStore for session storage
-const MemoryStore = memorystore(session);
+import { runMigrations } from "./supabase";
+import { storage } from "./storage";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Set up session middleware
+// Set up session middleware with the storage's session store
 app.use(
   session({
-    store: new MemoryStore({
-      checkPeriod: 86400000, // prune expired entries every 24h
-    }),
+    store: storage.sessionStore,
     secret: process.env.SESSION_SECRET || 'ether_cars_secret_key',
     resave: false,
     saveUninitialized: false,
@@ -59,6 +55,13 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Run database migrations
+  try {
+    await runMigrations();
+  } catch (error) {
+    console.error('Failed to run migrations:', error);
+  }
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
