@@ -7,29 +7,22 @@ import {
   insertSiteSettingsSchema, 
   insertUserSchema
 } from "@shared/schema";
-import session from "express-session";
-import bcrypt from "bcrypt";
-
-// Extend Request interface to include session properties
-declare module "express-session" {
-  interface SessionData {
-    user?: {
-      id: number;
-      username: string;
-      isAdmin: boolean;
-    };
-  }
-}
+import { setupAuth } from "./auth";
 
 // Middleware to check if user is admin
 const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
   // Check if user is authenticated and is an admin
-  const user = req.session?.user;
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({
+      success: false,
+      message: 'Not authenticated'
+    });
+  }
   
   // Ensure we evaluate isAdmin as a boolean
-  const isUserAdmin = user?.isAdmin === null ? false : !!user?.isAdmin;
+  const isUserAdmin = req.user.isAdmin === null ? false : !!req.user.isAdmin;
   
-  if (user && isUserAdmin) {
+  if (isUserAdmin) {
     return next();
   }
   
@@ -40,6 +33,8 @@ const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Configure authentication
+  setupAuth(app);
   // =============== BOOKING ROUTES ===============
   
   // Create a new booking
@@ -322,170 +317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // =============== AUTH ROUTES ===============
-  
-  // Add route to check if user is authenticated
-  app.get("/api/auth/me", (req, res) => {
-    if (req.session.user) {
-      // Ensure isAdmin is a boolean value
-      const userData = {
-        ...req.session.user,
-        isAdmin: req.session.user.isAdmin === null ? false : !!req.session.user.isAdmin
-      };
-      
-      return res.status(200).json({
-        success: true,
-        data: userData
-      });
-    }
-    
-    return res.status(401).json({
-      success: false,
-      message: "Not authenticated"
-    });
-  });
-  
-  // Logout route
-  app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({
-          success: false,
-          message: "Failed to logout"
-        });
-      }
-      
-      res.status(200).json({
-        success: true,
-        message: "Logged out successfully"
-      });
-    });
-  });
-  
-  // Login route with database authentication
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { username, password } = req.body;
-      
-      if (!username || !password) {
-        return res.status(400).json({
-          success: false,
-          message: "Username and password are required"
-        });
-      }
-      
-      // Get user from database
-      const user = await storage.getUserByUsername(username);
-      
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid username or password"
-        });
-      }
-
-      // Check if the user is from the database (has hashed password) or a hardcoded admin
-      let passwordMatches = false;
-      
-      // Handle both cases - plain text passwords in development and hashed passwords
-      if (user.password.includes('.') || user.password.includes('$')) {
-        // This is likely a hashed password
-        try {
-          // Try bcrypt compare first
-          if (user.password.startsWith('$')) {
-            passwordMatches = await bcrypt.compare(password, user.password);
-          } else {
-            // Check if it's our custom hash format (from scrypt)
-            const [hashed, salt] = user.password.split('.');
-            // For our demo, allow admin123 password for hardcoded admin user
-            if (username === 'admin' && password === 'admin123') {
-              passwordMatches = true;
-            }
-          }
-        } catch (err) {
-          console.error('Error comparing passwords:', err);
-        }
-      } else {
-        // Plain text password (only for development)
-        passwordMatches = user.password === password;
-      }
-      
-      if (!passwordMatches) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid username or password"
-        });
-      }
-      
-      // Store user in session
-      req.session.user = {
-        id: user.id,
-        username: user.username,
-        isAdmin: user.isAdmin === null ? false : !!user.isAdmin
-      };
-      
-      res.status(200).json({
-        success: true,
-        message: "Login successful",
-        data: {
-          id: user.id,
-          username: user.username,
-          isAdmin: user.isAdmin === null ? false : !!user.isAdmin,
-          fullName: user.fullName,
-          email: user.email
-        }
-      });
-    } catch (error) {
-      console.error("Error logging in:", error);
-      res.status(500).json({
-        success: false,
-        message: "Login failed",
-        error: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
-  // Create a user account with hashed password
-  app.post("/api/auth/register", async (req, res) => {
-    try {
-      const userData = insertUserSchema.parse(req.body);
-      
-      // Check if username already exists
-      const existingUser = await storage.getUserByUsername(userData.username);
-      if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          message: "Username already exists"
-        });
-      }
-      
-      // Hash the password
-      const hashedPassword = await bcrypt.hash(userData.password, 10);
-      
-      // Create the user with hashed password
-      const user = await storage.createUser({
-        ...userData,
-        password: hashedPassword,
-        isAdmin: false // Regular users can't register as admins
-      });
-      
-      // Don't return the password
-      const { password, ...userWithoutPassword } = user;
-      
-      res.status(201).json({
-        success: true,
-        message: "User registered successfully",
-        data: userWithoutPassword
-      });
-    } catch (error) {
-      console.error("Error registering user:", error);
-      res.status(400).json({
-        success: false,
-        message: "Invalid user data",
-        error: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
+  // Auth routes are handled by setupAuth(app) at the beginning of this function
 
   const httpServer = createServer(app);
 

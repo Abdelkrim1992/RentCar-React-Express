@@ -128,7 +128,22 @@ async function seedAdminUser(db: any) {
     });
     
     if (existingAdmin) {
-      console.log('Admin user already exists, skipping creation');
+      // If admin exists but password isn't hashed with bcrypt, update it
+      if (!existingAdmin.password.startsWith('$2b$')) {
+        console.log('Updating admin user with bcrypt hashed password...');
+        
+        const password = 'admin123';
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+        
+        await db.update(schema.users)
+          .set({ password: hashedPassword })
+          .where((users: any, { eq }: any) => eq(users.username, 'admin'));
+        
+        console.log('Admin password updated successfully');
+      } else {
+        console.log('Admin user already exists with proper hashed password, skipping creation');
+      }
       return;
     }
     
