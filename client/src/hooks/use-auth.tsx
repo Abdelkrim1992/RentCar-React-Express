@@ -2,6 +2,9 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useLocation } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
 
+// LocalStorage keys
+const USER_STORAGE_KEY = 'ether_auth_user';
+
 interface User {
   id: number;
   username: string;
@@ -29,17 +32,55 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Helper functions for localStorage
+const saveUserToStorage = (user: User): void => {
+  try {
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  } catch (error) {
+    console.error('Error saving user to localStorage:', error);
+  }
+};
+
+const removeUserFromStorage = (): void => {
+  try {
+    localStorage.removeItem(USER_STORAGE_KEY);
+  } catch (error) {
+    console.error('Error removing user from localStorage:', error);
+  }
+};
+
+const getUserFromStorage = (): User | null => {
+  try {
+    const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+    return storedUser ? JSON.parse(storedUser) : null;
+  } catch (error) {
+    console.error('Error getting user from localStorage:', error);
+    return null;
+  }
+};
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  // Initialize user state from localStorage if available
+  const [user, setUser] = useState<User | null>(() => getUserFromStorage());
   const [isLoading, setIsLoading] = useState(true);
   const [, setLocation] = useLocation();
+
+  // Update user state and localStorage
+  const updateUser = (newUser: User | null) => {
+    setUser(newUser);
+    if (newUser) {
+      saveUserToStorage(newUser);
+    } else {
+      removeUserFromStorage();
+    }
+  };
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
       const data: AuthResponse = await apiRequest('POST', '/api/auth/login', { username, password });
       
       if (data && data.success) {
-        setUser(data.data);
+        updateUser(data.data);
         return true;
       }
       
@@ -53,52 +94,72 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       await apiRequest('POST', '/api/auth/logout');
-      setUser(null);
+      updateUser(null);
       setLocation('/admin/login');
     } catch (error) {
       console.error('Logout error:', error);
       // Still redirect to login even if there was an error
-      setUser(null);
+      updateUser(null);
       setLocation('/admin/login');
     }
   };
 
   const checkAuth = async (): Promise<boolean> => {
     setIsLoading(true);
-    try {
-      // Use the apiRequest with a modified try/catch to handle 401s
+    
+    // First check if we have user data in localStorage
+    const storedUser = getUserFromStorage();
+    
+    if (storedUser) {
+      // Verify the stored user with the server
       try {
         const data: AuthResponse = await apiRequest('GET', '/api/auth/me');
         
         if (data && data.success) {
-          setUser(data.data);
+          // Update with the latest user data from server
+          updateUser(data.data);
           setIsLoading(false);
           return true;
         }
         
-        // If we got a response but it's not successful
-        setUser(null);
+        // If server says not authenticated, clear localStorage
+        updateUser(null);
+        setIsLoading(false);
+        return false;
+      } catch (error) {
+        // If server error or 401, clear localStorage
+        console.error('Verify auth error:', error);
+        updateUser(null);
+        setIsLoading(false);
+        return false;
+      }
+    } else {
+      // No stored user, check with server
+      try {
+        const data: AuthResponse = await apiRequest('GET', '/api/auth/me');
+        
+        if (data && data.success) {
+          updateUser(data.data);
+          setIsLoading(false);
+          return true;
+        }
+        
         setIsLoading(false);
         return false;
       } catch (apiError) {
         // Handle 401 separately (not authenticated)
         if (apiError instanceof Error && apiError.message.includes('401')) {
-          setUser(null);
+          updateUser(null);
           setIsLoading(false);
           return false;
         }
-        // Rethrow for other errors to be caught by the outer catch
-        throw apiError;
+        
+        // Handle other errors
+        console.error('Check auth error:', apiError);
+        updateUser(null);
+        setIsLoading(false);
+        return false;
       }
-    } catch (error) {
-      // Handle other errors
-      console.error('Check auth error:', error);
-      setUser(null);
-      setIsLoading(false);
-      return false;
-    } finally {
-      // Always ensure loading is set to false
-      setIsLoading(false);
     }
   };
 
