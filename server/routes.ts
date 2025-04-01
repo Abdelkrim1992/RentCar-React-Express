@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
@@ -7,14 +7,29 @@ import {
   insertSiteSettingsSchema, 
   insertUserSchema
 } from "@shared/schema";
+import session from "express-session";
+import memorystore from "memorystore";
+
+// Create MemoryStore for session storage
+const MemoryStore = memorystore(session);
+
+// Extend Request interface to include session properties
+declare module "express-session" {
+  interface SessionData {
+    user?: {
+      id: number;
+      username: string;
+      isAdmin: boolean;
+    };
+  }
+}
 
 // Middleware to check if user is admin
-const isAdmin = async (req: Request, res: Response, next: Function) => {
-  // In a real app, this would check the session/auth token
-  // For now, we'll use a simple admin check based on a header for testing
-  const isAdminHeader = req.headers['x-is-admin'];
+const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  // Check if user is authenticated and is an admin
+  const user = req.session?.user;
   
-  if (isAdminHeader === 'true') {
+  if (user && user.isAdmin) {
     return next();
   }
   
@@ -309,7 +324,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // =============== AUTH ROUTES ===============
   
-  // Basic auth route for testing (in a real app, this would be more secure)
+  // Add route to check if user is authenticated
+  app.get("/api/auth/me", (req, res) => {
+    if (req.session.user) {
+      return res.status(200).json({
+        success: true,
+        data: req.session.user
+      });
+    }
+    
+    return res.status(401).json({
+      success: false,
+      message: "Not authenticated"
+    });
+  });
+  
+  // Logout route
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to logout"
+        });
+      }
+      
+      res.status(200).json({
+        success: true,
+        message: "Logged out successfully"
+      });
+    });
+  });
+  
+  // Basic auth route with session 
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
@@ -321,6 +368,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // For simplicity, check for admin credentials - in a real app, use the database
+      if (username === 'admin' && password === 'admin123') {
+        // Create admin session
+        const userData = {
+          id: 1,
+          username: 'admin',
+          isAdmin: true,
+        };
+        
+        // Store user in session
+        req.session.user = userData;
+        
+        return res.status(200).json({
+          success: true,
+          message: "Login successful",
+          data: userData
+        });
+      }
+      
+      // Check regular user authentication
       const user = await storage.getUserByUsername(username);
       
       if (!user || user.password !== password) {
@@ -330,20 +397,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // In a real app, you would generate a JWT token here
+      // Store user in session
+      req.session.user = {
+        id: user.id,
+        username: user.username,
+        isAdmin: user.isAdmin
+      };
+      
       res.status(200).json({
         success: true,
         message: "Login successful",
         data: {
-          user: {
-            id: user.id,
-            username: user.username,
-            isAdmin: user.isAdmin,
-            fullName: user.fullName,
-            email: user.email
-          },
-          // This is a placeholder for a real token
-          token: "dummy-auth-token"
+          id: user.id,
+          username: user.username,
+          isAdmin: user.isAdmin,
+          fullName: user.fullName,
+          email: user.email
         }
       });
     } catch (error) {

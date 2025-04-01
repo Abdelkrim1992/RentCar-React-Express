@@ -6,8 +6,10 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import CarDetails from "@/pages/CarDetails";
 import { Suspense, lazy } from "react";
+import { AuthProvider, ProtectedRoute } from "@/hooks/use-auth";
 
 // Lazy load admin pages for better performance
+const AdminLogin = lazy(() => import("@/pages/admin/Login"));
 const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const AdminCars = lazy(() => import("@/pages/admin/Cars"));
 const AdminSettings = lazy(() => import("@/pages/admin/Settings"));
@@ -25,20 +27,33 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/cars/:id" component={CarDetails} />
       
-      {/* Admin routes with lazy loading */}
+      {/* Admin login route */}
+      <Route path="/admin/login">
+        <Suspense fallback={<Loading />}>
+          <AdminLogin />
+        </Suspense>
+      </Route>
+      
+      {/* Protected admin routes with lazy loading */}
       <Route path="/admin">
         <Suspense fallback={<Loading />}>
-          <AdminDashboard />
+          <ProtectedRoute>
+            <AdminDashboard />
+          </ProtectedRoute>
         </Suspense>
       </Route>
       <Route path="/admin/cars">
         <Suspense fallback={<Loading />}>
-          <AdminCars />
+          <ProtectedRoute>
+            <AdminCars />
+          </ProtectedRoute>
         </Suspense>
       </Route>
       <Route path="/admin/settings">
         <Suspense fallback={<Loading />}>
-          <AdminSettings />
+          <ProtectedRoute>
+            <AdminSettings />
+          </ProtectedRoute>
         </Suspense>
       </Route>
       
@@ -51,8 +66,10 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router />
-      <Toaster />
+      <AuthProvider>
+        <Router />
+        <Toaster />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

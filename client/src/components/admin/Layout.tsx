@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/use-auth';
 import { 
   BarChart, 
   Car, 
@@ -18,6 +19,11 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const [location] = useLocation();
+  const { user, logout } = useAuth();
+  
+  const handleLogout = () => {
+    logout();
+  };
   
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -41,7 +47,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           <NavLink href="/admin/profile" icon={<User size={18} />} label="Profile" isActive={location === '/admin/profile'} />
           
           <div className="pt-4 mt-4 border-t border-gray-200">
-            <Button variant="ghost" className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50">
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50"
+              onClick={handleLogout}
+            >
               <LogOut size={18} className="mr-2" />
               <span>Log Out</span>
             </Button>
@@ -54,8 +64,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               <User size={16} />
             </div>
             <div className="ml-2">
-              <p className="text-sm font-medium">Admin User</p>
-              <p className="text-xs text-gray-500">admin@example.com</p>
+              <p className="text-sm font-medium">{user ? user.username : 'Admin User'}</p>
+              <p className="text-xs text-gray-500">{user && user.isAdmin ? 'Administrator' : 'Staff'}</p>
             </div>
           </div>
         </div>
@@ -85,7 +95,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               <Settings size={20} />
             </Button>
           </Link>
-          <Button variant="ghost" size="icon" className="text-red-500">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-red-500"
+            onClick={handleLogout}
+          >
             <LogOut size={20} />
           </Button>
         </div>

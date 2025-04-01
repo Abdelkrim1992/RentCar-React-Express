@@ -165,7 +165,7 @@ const CarDetails: React.FC = () => {
                 <div className="mb-8">
                   <p className="text-gray-700 leading-relaxed mb-6">
                     {car.description || 
-                      `Experience luxury and performance with the ${car.name}. This premium ${car.type.toLowerCase()} vehicle offers exceptional comfort, powerful performance, and state-of-the-art features for an unforgettable driving experience.`}
+                      `Experience luxury and performance with the ${car.name}. This premium ${car.type ? car.type.toLowerCase() : 'luxury'} vehicle offers exceptional comfort, powerful performance, and state-of-the-art features for an unforgettable driving experience.`}
                   </p>
                   
                   <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
