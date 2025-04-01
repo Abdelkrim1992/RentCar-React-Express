@@ -1,0 +1,25 @@
+Warning: React does not recognize the &#x60;indicatorClassName&#x60; prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase &#x60;indicatorclassname&#x60; instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+    at div
+    at https://d0a2b553-1c16-4943-b8ae-5b302705c219-00-3m7sy6487gtxf.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-3IG6TB7G.js?v=b5083f24:41:13
+    at Provider (https://d0a2b553-1c16-4943-b8ae-5b302705c219-00-3m7sy6487gtxf.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-progress.js?v=b5083f24:30:15)
+    at https://d0a2b553-1c16-4943-b8ae-5b302705c219-00-3m7sy6487gtxf.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-progress.js?v=b5083f24:90:7
+    at _c (https://d0a2b553-1c16-4943-b8ae-5b302705c219-00-3m7sy6487gtxf.riker.replit.dev/src/components/ui/progress.tsx:21:11)
+    at div
+    at div
+    at SatisfactionBar (https://d0a2b553-1c16-4943-b8ae-5b302705c219-00-3m7sy6487gtxf.riker.replit.dev/src/components/Features.tsx:299:28)
+    at div
+    at div
+    at div
+    at MotionComponent (https://d0a2b553-1c16-4943-b8ae-5b302705c219-00-3m7sy6487gtxf.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/framer-motion.js?v=b5083f24:6536:40)
+    at div
+    at div
+    at section
+    at Features
+    at div
+    at Home
+    at Route (https://d0a2b553-1c16-4943-b8ae-5b302705c219-00-3m7sy6487gtxf.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b5083f24:323:16)
+    at Switch (https://d0a2b553-1c16-4943-b8ae-5b302705c219-00-3m7sy6487gtxf.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b5083f24:379:17)
+    at Router
+    at AuthProvider (https://d0a2b553-1c16-4943-b8ae-5b302705c219-00-3m7sy6487gtxf.riker.replit.dev/src/hooks/use-auth.tsx:21:32)
+    at QueryClientProvider (https://d0a2b553-1c16-4943-b8ae-5b302705c219-00-3m7sy6487gtxf.riker.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=b5083f24:2805:3)
+    at App
