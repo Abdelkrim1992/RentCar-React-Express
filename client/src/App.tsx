@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import CarDetails from "@/pages/CarDetails";
+import BookingPage from "@/pages/BookingPage";
 import { Suspense, lazy } from "react";
 import { AuthProvider, ProtectedRoute } from "@/hooks/use-auth";
 
@@ -23,6 +24,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/cars/:id" component={CarDetails} />
+      <Route path="/booking/:carId" component={BookingPage} />
       
       {/* Admin login route */}
       <Route path="/admin/login">

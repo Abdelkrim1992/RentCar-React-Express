@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useRoute, Link } from 'wouter';
+import { useRoute, Link, useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import { getQueryFn } from '@/lib/queryClient';
 import { CheckCircle, ArrowLeft, MapPin, Calendar, Lock, Shield } from 'lucide-react';
@@ -20,6 +20,7 @@ interface CarResponse {
 const CarDetails: React.FC = () => {
   const [, params] = useRoute('/cars/:id');
   const carId = params?.id;
+  const [, navigate] = useLocation();
   const [currency, setCurrency] = useState('USD');
   
   // Listen for currency change events
@@ -196,9 +197,9 @@ const CarDetails: React.FC = () => {
                     </div>
                     <Button 
                       className="px-8 py-6 bg-black text-white hover:bg-black/90 font-semibold w-full sm:w-auto"
-                      asChild
+                      onClick={() => navigate(`/booking/${carId}`)}
                     >
-                      <a href="#booking">Book Now</a>
+                      Book Now
                     </Button>
                   </div>
                 </div>
@@ -239,9 +240,9 @@ const CarDetails: React.FC = () => {
                 
                 <Button 
                   className="w-full py-6 bg-gradient-to-r from-[#6843EC] to-[#D2FF3A] hover:from-[#5733dc] hover:to-[#c2ef2a] text-white font-semibold"
-                  asChild
+                  onClick={() => navigate(`/booking/${carId}`)}
                 >
-                  <a href="#booking">Reserve This Car</a>
+                  Reserve This Car
                 </Button>
               </motion.div>
             </div>
