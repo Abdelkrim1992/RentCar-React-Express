@@ -120,6 +120,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (data && data.success && data.token) {
         updateUser(data.data, data.token);
+        
+        // If user is admin, redirect to admin dashboard
+        if (data.data.isAdmin) {
+          setLocation('/admin');
+        }
+        
         return true;
       }
       
@@ -151,6 +157,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (data && data.success) {
           // Update with the latest user data from server
           updateUser(data.data, token); // Keep using the same token
+          
+          // Auto redirect to admin if it's an admin user
+          if (data.data.isAdmin && window.location.pathname === '/admin/login') {
+            setLocation('/admin');
+          }
+          
           setIsLoading(false);
           return true;
         }

@@ -24,7 +24,7 @@ const AdminLogin: React.FC = () => {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const { checkAuth } = useAuth();
+  const { checkAuth, login: authLogin } = useAuth();
 
   // Redirect if already logged in
   useEffect(() => {
@@ -84,9 +84,35 @@ const AdminLogin: React.FC = () => {
     }
   });
 
-  const onSubmit = (data: LoginValues) => {
+  const onSubmit = async (data: LoginValues) => {
     setIsLoading(true);
-    loginMutation.mutate(data);
+    
+    try {
+      // Use the authLogin function directly which will handle token storage and redirection
+      const success = await authLogin(data.username, data.password);
+      
+      if (success) {
+        toast({
+          title: 'Login successful',
+          description: 'Welcome to the admin dashboard',
+        });
+        // Redirection is handled in the authLogin function
+      } else {
+        toast({
+          title: 'Login failed',
+          description: 'Invalid credentials',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+      }
+    } catch (error) {
+      toast({
+        title: 'Login failed',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+    }
   };
 
   return (

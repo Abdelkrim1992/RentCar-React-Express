@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login Demo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .card {
+      border: 1px solid #ddd;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    button {
+      background-color: #6843EC;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #5735c9;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    .result {
+      margin-top: 20px;
+      font-size: 14px;
+    }
+    .success {
+      color: green;
+      font-weight: bold;
+    }
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Admin Authentication Demo</h1>
+  
+  <div class="card">
+    <h2>Login as Admin</h2>
+    <p>Click the button below to login with admin credentials and store the token in localStorage.</p>
+    <button id="loginBtn">Login as Admin</button>
+    <div id="loginResult" class="result"></div>
+  </div>
+  
+  <div class="card">
+    <h2>Check Authentication Status</h2>
+    <p>Click the button to check if you're currently authenticated as admin.</p>
+    <button id="checkAuthBtn">Check Auth Status</button>
+    <div id="authResult" class="result"></div>
+  </div>
+  
+  <div class="card">
+    <h2>View Stored Token</h2>
+    <p>Display the current auth token stored in localStorage.</p>
+    <button id="viewTokenBtn">View Token</button>
+    <div id="tokenResult" class="result"></div>
+  </div>
+  
+  <div class="card">
+    <h2>Logout</h2>
+    <p>Remove the auth token and user data from localStorage.</p>
+    <button id="logoutBtn">Logout</button>
+    <div id="logoutResult" class="result"></div>
+  </div>
+
+  <script>
+    // Login as admin
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const resultDiv = document.getElementById('loginResult');
+      resultDiv.innerHTML = 'Logging in...';
+      
+      try {
+        const response = await fetch('http://localhost:5000/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            username: 'admin',
+            password: 'admin123'
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.token) {
+          // Store token in localStorage
+          localStorage.setItem('ether_auth_token', data.token);
+          
+          // Store user data in localStorage
+          localStorage.setItem('ether_auth_user', JSON.stringify(data.data));
+          
+          resultDiv.innerHTML = `<span class="success">Login successful!</span><br>
+            Token stored in localStorage.<br>
+            User data stored: <pre>${JSON.stringify(data.data, null, 2)}</pre>`;
+        } else {
+          resultDiv.innerHTML = `<span class="error">Login failed:</span><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="error">Error during login:</span><br>${error.message}`;
+      }
+    });
+    
+    // Check authentication status
+    document.getElementById('checkAuthBtn').addEventListener('click', async () => {
+      const resultDiv = document.getElementById('authResult');
+      resultDiv.innerHTML = 'Checking authentication...';
+      
+      try {
+        const token = localStorage.getItem('ether_auth_token');
+        
+        if (!token) {
+          resultDiv.innerHTML = '<span class="error">Not authenticated:</span><br>No token found in localStorage.';
+          return;
+        }
+        
+        const response = await fetch('http://localhost:5000/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          resultDiv.innerHTML = `<span class="success">Authenticated as:</span><br><pre>${JSON.stringify(data.data, null, 2)}</pre>`;
+        } else {
+          resultDiv.innerHTML = `<span class="error">Authentication failed:</span><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="error">Error checking auth:</span><br>${error.message}`;
+      }
+    });
+    
+    // View token
+    document.getElementById('viewTokenBtn').addEventListener('click', () => {
+      const resultDiv = document.getElementById('tokenResult');
+      const token = localStorage.getItem('ether_auth_token');
+      const userData = localStorage.getItem('ether_auth_user');
+      
+      if (token) {
+        resultDiv.innerHTML = `<span class="success">Token found:</span><br>
+          <pre>${token}</pre>
+          <br><span class="success">User data:</span><br>
+          <pre>${userData ? JSON.stringify(JSON.parse(userData), null, 2) : 'No user data found'}</pre>`;
+      } else {
+        resultDiv.innerHTML = '<span class="error">No token found in localStorage.</span>';
+      }
+    });
+    
+    // Logout
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      const resultDiv = document.getElementById('logoutResult');
+      
+      localStorage.removeItem('ether_auth_token');
+      localStorage.removeItem('ether_auth_user');
+      
+      resultDiv.innerHTML = '<span class="success">Logged out successfully!</span><br>Token and user data removed from localStorage.';
+    });
+  </script>
+</body>
+</html>
