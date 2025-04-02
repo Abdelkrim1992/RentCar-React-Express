@@ -14,12 +14,9 @@ const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const AdminCars = lazy(() => import("@/pages/admin/Cars"));
 const AdminSettings = lazy(() => import("@/pages/admin/Settings"));
 
-// Loading placeholder
-const Loading = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <div className="w-16 h-16 border-4 border-t-[#6843EC] border-b-[#D2FF3A] border-l-[#6843EC] border-r-[#D2FF3A] rounded-full animate-spin"></div>
-  </div>
-);
+// Minimal loading placeholder - just shows content as it loads
+// No spinning animation that could block interaction
+const MinimalLoading = () => null;
 
 function Router() {
   return (
@@ -29,28 +26,28 @@ function Router() {
       
       {/* Admin login route */}
       <Route path="/admin/login">
-        <Suspense fallback={<Loading />}>
+        <Suspense fallback={<MinimalLoading />}>
           <AdminLogin />
         </Suspense>
       </Route>
       
       {/* Protected admin routes with lazy loading */}
       <Route path="/admin">
-        <Suspense fallback={<Loading />}>
+        <Suspense fallback={<MinimalLoading />}>
           <ProtectedRoute>
             <AdminDashboard />
           </ProtectedRoute>
         </Suspense>
       </Route>
       <Route path="/admin/cars">
-        <Suspense fallback={<Loading />}>
+        <Suspense fallback={<MinimalLoading />}>
           <ProtectedRoute>
             <AdminCars />
           </ProtectedRoute>
         </Suspense>
       </Route>
       <Route path="/admin/settings">
-        <Suspense fallback={<Loading />}>
+        <Suspense fallback={<MinimalLoading />}>
           <ProtectedRoute>
             <AdminSettings />
           </ProtectedRoute>

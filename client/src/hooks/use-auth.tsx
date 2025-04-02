@@ -93,7 +93,7 @@ const getTokenFromStorage = (): string | null => {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Initialize user state from localStorage if available
   const [user, setUser] = useState<User | null>(() => getUserFromStorage());
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [, setLocation] = useLocation();
 
   // Update user state and localStorage
@@ -116,12 +116,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
+      // Don't set isLoading to true to avoid loading screens
       const data: AuthResponse = await apiRequest('POST', '/api/auth/login', { username, password });
       
       if (data && data.success && data.token) {
-        updateUser(data.data, data.token);
+        // Immediately update storage to ensure fast access
+        saveTokenToStorage(data.token);
+        saveUserToStorage(data.data);
         
-        // If user is admin, redirect to admin dashboard
+        // Then update state
+        setUser(data.data);
+        
+        // If user is admin, immediately redirect to admin dashboard
         if (data.data.isAdmin) {
           setLocation('/admin');
         }
@@ -143,51 +149,58 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const checkAuth = async (): Promise<boolean> => {
-    setIsLoading(true);
-    
-    // First check if we have a token in localStorage
+    // First check if we have a token and user in localStorage
     const token = getTokenFromStorage();
     const storedUser = getUserFromStorage();
     
+    // If we have both token and user in localStorage, trust that first
     if (token && storedUser) {
-      // Token will be automatically included in the request by queryClient.ts
+      // Only set the user from the stored value if we don't already have it
+      if (!user) {
+        setUser(storedUser);
+      }
+      
       try {
+        // Quietly verify with server in the background
         const data: AuthResponse = await apiRequest('GET', '/api/auth/me');
         
         if (data && data.success) {
-          // Update with the latest user data from server
-          updateUser(data.data, token); // Keep using the same token
+          // Update user data if needed (keep same token)
+          updateUser(data.data, token);
           
-          // Auto redirect to admin if it's an admin user
+          // Auto redirect to admin if on login page
           if (data.data.isAdmin && window.location.pathname === '/admin/login') {
             setLocation('/admin');
           }
           
-          setIsLoading(false);
           return true;
         }
         
-        // If server says not authenticated, clear localStorage
-        updateUser(null);
-        setIsLoading(false);
-        return false;
+        // Only clear on explicit server rejection
+        // This way temporary network issues won't log users out
+        return true;
       } catch (error) {
-        // If server error or 401/403, clear localStorage
-        console.error('Verify auth error:', error);
-        updateUser(null);
-        setIsLoading(false);
-        return false;
+        // Don't clear token on network errors - only on explicit 401/403
+        if (error instanceof Error && 
+            (error.message.includes('401') || error.message.includes('403'))) {
+          updateUser(null);
+          return false;
+        }
+        // On other errors, keep the user logged in
+        return true;
       }
     } else {
-      // No stored token, user is not authenticated
+      // No stored credentials, user is not authenticated
       updateUser(null);
-      setIsLoading(false);
       return false;
     }
   };
 
+  // On initial load, check auth once if we have a stored token
   useEffect(() => {
-    checkAuth();
+    if (getTokenFromStorage()) {
+      checkAuth();
+    }
   }, []);
 
   return (
@@ -221,40 +234,39 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading, checkAuth } = useAuth();
+  const { isAuthenticated, checkAuth } = useAuth();
   const [, setLocation] = useLocation();
-  const [initialCheck, setInitialCheck] = useState(false);
-  const [loginTransition, setLoginTransition] = useState(true);
 
+  // First, do an immediate check for token and user in localStorage 
+  // to avoid any loading screens
+  const token = getTokenFromStorage();
+  const storedUser = getUserFromStorage();
+  
+  // Only perform background check if needed
   useEffect(() => {
-    // Check authentication status when component mounts
+    // Only run a background auth check when necessary
+    // This avoids any network calls that could delay rendering
     const verifyAuth = async () => {
+      // Skip verification if we already have token and user data in localStorage
+      if (token && storedUser) {
+        return; // Already authenticated based on localStorage
+      }
+      
+      // Only check with server if localStorage doesn't have valid data
       const isAuthed = await checkAuth();
       if (!isAuthed) {
         setLocation('/admin/login');
       }
-      // Mark initial check as complete
-      setInitialCheck(true);
-      // Give a slight delay to ensure smooth transition
-      setTimeout(() => {
-        setLoginTransition(false);
-      }, 500);
     };
     
     verifyAuth();
-  }, [checkAuth, setLocation]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
-  // Show loading during:
-  // 1. Initial authentication check
-  // 2. Any loading state before initial complete check
-  // 3. Login transition (first 500ms after auth to avoid flicker)
-  if (isLoading || !initialCheck || loginTransition) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-t-[#6843EC] border-b-[#D2FF3A] border-l-[#6843EC] border-r-[#D2FF3A] rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  return isAuthenticated ? <>{children}</> : null;
+  // If both token and stored user exist, render immediately without waiting
+  // for the network check to complete - this gives immediate access
+  // If user is not authenticated by localStorage, the useEffect will redirect
+  const immediatelyAuthenticated = !!token && !!storedUser;
+  
+  return (immediatelyAuthenticated || isAuthenticated) ? <>{children}</> : null;
 };

@@ -96,7 +96,8 @@ const AdminLogin: React.FC = () => {
           title: 'Login successful',
           description: 'Welcome to the admin dashboard',
         });
-        // Redirection is handled in the authLogin function
+        // Redirection is already handled in the authLogin function
+        // We'll let the authLogin function handle the state management
       } else {
         toast({
           title: 'Login failed',

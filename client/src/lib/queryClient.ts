@@ -55,10 +55,20 @@ export const getQueryFn: <T>(options: {
     // Prepare headers
     const headers: Record<string, string> = {};
     
-    // Add authorization token if available
-    const token = getAuthToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    try {
+      // Add authorization token if available in localStorage
+      // Direct localStorage access ensures we always have the latest token
+      const token = localStorage.getItem('ether_auth_token');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    } catch (error) {
+      // Fallback to regular function if localStorage is not available
+      console.error('Error accessing localStorage:', error);
+      const token = getAuthToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
     }
     
     const res = await fetch(queryKey[0] as string, {
