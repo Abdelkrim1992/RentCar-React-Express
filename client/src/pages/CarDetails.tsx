@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRoute, Link } from 'wouter';
 import { motion } from 'framer-motion';
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { CarType } from '@/components/CarsShowcase';
+import { formatPrice } from '@/components/CurrencySelector';
 
 // Response type definition from API
 interface CarResponse {
@@ -19,6 +20,26 @@ interface CarResponse {
 const CarDetails: React.FC = () => {
   const [, params] = useRoute('/cars/:id');
   const carId = params?.id;
+  const [currency, setCurrency] = useState('USD');
+  
+  // Listen for currency change events
+  useEffect(() => {
+    const handleCurrencyChange = (event: CustomEvent) => {
+      setCurrency(event.detail.currency);
+    };
+    
+    window.addEventListener('currencyChange', handleCurrencyChange as EventListener);
+    
+    // Check for saved currency in localStorage on initial load
+    const savedCurrency = localStorage.getItem('ether_currency');
+    if (savedCurrency) {
+      setCurrency(savedCurrency);
+    }
+    
+    return () => {
+      window.removeEventListener('currencyChange', handleCurrencyChange as EventListener);
+    };
+  }, []);
   
   const { data: carResponse, isLoading, error } = useQuery<CarResponse>({
     queryKey: ['/api/cars', carId],
@@ -169,7 +190,10 @@ const CarDetails: React.FC = () => {
                   </p>
                   
                   <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
-                    <div className="text-3xl font-darker font-bold text-[#6843EC]">${car.price}<span className="text-sm text-gray-500">/day</span></div>
+                    <div className="text-3xl font-darker font-bold text-[#6843EC]">
+                      {formatPrice(car.price, currency)}
+                      <span className="text-sm text-gray-500">/day</span>
+                    </div>
                     <Button 
                       className="px-8 py-6 bg-black text-white hover:bg-black/90 font-semibold w-full sm:w-auto"
                       asChild

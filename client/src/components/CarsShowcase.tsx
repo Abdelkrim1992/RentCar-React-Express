@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import { Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { getQueryFn } from '@/lib/queryClient';
+import { formatPrice } from './CurrencySelector';
 
 // Define the car type from our schema
 export interface CarType {
@@ -124,6 +125,27 @@ interface CarCardProps {
 }
 
 const CarCard: React.FC<CarCardProps> = ({ car, index }) => {
+  const [currency, setCurrency] = useState('USD');
+  
+  // Listen for currency change events
+  useEffect(() => {
+    const handleCurrencyChange = (event: CustomEvent) => {
+      setCurrency(event.detail.currency);
+    };
+    
+    window.addEventListener('currencyChange', handleCurrencyChange as EventListener);
+    
+    // Check for saved currency in localStorage on initial load
+    const savedCurrency = localStorage.getItem('ether_currency');
+    if (savedCurrency) {
+      setCurrency(savedCurrency);
+    }
+    
+    return () => {
+      window.removeEventListener('currencyChange', handleCurrencyChange as EventListener);
+    };
+  }, []);
+  
   return (
     <motion.div 
       className="bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:-translate-y-2"
@@ -175,7 +197,7 @@ const CarCard: React.FC<CarCardProps> = ({ car, index }) => {
         <div className="flex justify-between items-center">
           <div>
             <span className="text-gray-500">From</span>
-            <span className="font-darker font-bold text-2xl ml-1">${car.price}</span>
+            <span className="font-darker font-bold text-2xl ml-1">{formatPrice(car.price, currency)}</span>
             <span className="text-gray-500">/day</span>
           </div>
           <div className="flex gap-2">

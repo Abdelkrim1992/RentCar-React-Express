@@ -33,11 +33,18 @@ export const carSchema = z.object({
   power: z.string().min(1),
   rating: z.string().min(1),
   price: z.string().min(1),
+  pricePerDay: z.string().default("0"),
+  transmission: z.string().default("Automatic"),
+  fuelType: z.string().default("Gasoline"),
   image: z.string().min(1),
+  gallery: z.array(z.string()).default([]),
   special: z.string().nullable(),
   specialColor: z.string().nullable(),
   description: z.string().nullable(),
   features: z.array(z.string()),
+  available: z.boolean().default(true),
+  year: z.number().int().default(2023),
+  brand: z.string().default("Unknown"),
   createdAt: z.date()
 });
 
@@ -48,6 +55,13 @@ export const insertCarSchema = carSchema.omit({
   special: z.string().optional().nullable(),
   specialColor: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
+  pricePerDay: z.string().optional(),
+  transmission: z.string().optional(),
+  fuelType: z.string().optional(),
+  gallery: z.array(z.string()).optional(),
+  available: z.boolean().optional(),
+  year: z.number().int().optional(),
+  brand: z.string().optional(),
 });
 
 // Booking schemas
@@ -64,6 +78,9 @@ export const bookingSchema = z.object({
   email: z.string().email().nullable(),
   phone: z.string().nullable(),
   status: z.string().default("pending"),
+  rejectionReason: z.string().nullable(),
+  notificationSent: z.boolean().default(false),
+  currency: z.string().default("USD"),
   createdAt: z.date()
 });
 
@@ -77,6 +94,9 @@ export const insertBookingSchema = bookingSchema.omit({
   email: z.string().email().optional().nullable(),
   phone: z.string().optional().nullable(),
   status: z.string().optional().default("pending"),
+  rejectionReason: z.string().optional().nullable(),
+  notificationSent: z.boolean().optional().default(false),
+  currency: z.string().optional().default("USD"),
 });
 
 // SiteSettings schemas
@@ -87,6 +107,7 @@ export const siteSettingsSchema = z.object({
   accentColor: z.string().default("#D2FF3A"),
   logoText: z.string().default("ETHER"),
   customLogo: z.string().nullable(),
+  defaultCurrency: z.string().default("USD"),
   updatedAt: z.date()
 });
 
@@ -99,6 +120,7 @@ export const insertSiteSettingsSchema = siteSettingsSchema.omit({
   accentColor: z.string().optional(),
   logoText: z.string().optional(),
   customLogo: z.string().optional().nullable(),
+  defaultCurrency: z.string().optional(),
 });
 
 // Export types

@@ -1,15 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Menu } from 'lucide-react';
+import CurrencySelector from './CurrencySelector';
+import { useQuery } from '@tanstack/react-query';
+
+interface SiteSettingsResponse {
+  success: boolean;
+  data: {
+    id: number;
+    siteName: string;
+    logoColor: string;
+    accentColor: string;
+    logoText: string;
+    customLogo: string | null;
+    updatedAt: string;
+  };
+}
 
 const Header: React.FC = () => {
+  // Get site settings to retrieve colors
+  const { data: siteSettingsResponse } = useQuery<SiteSettingsResponse>({
+    queryKey: ['/api/settings'],
+  });
+  
+  // Default colors if settings not loaded
+  const primaryColor = siteSettingsResponse?.data?.accentColor || '#6843EC';
+  const secondaryColor = siteSettingsResponse?.data?.logoColor || '#D2FF3A';
+  
   return (
     <header className="fixed top-0 left-0 right-0 bg-white bg-opacity-95 backdrop-blur-md z-50">
       <div className="container mx-auto px-6 py-4">
         <div className="flex justify-between items-center">
           <a href="#" className="font-turret text-3xl font-bold tracking-wider text-black">
-            <span className="text-[#6843EC]">ETHER</span><span className="text-[#D2FF3A]">.</span>
+            <span style={{ color: primaryColor }}>ETHER</span><span style={{ color: secondaryColor }}>.</span>
           </a>
           
           <nav className="hidden md:flex items-center space-x-8">
@@ -17,6 +41,8 @@ const Header: React.FC = () => {
           </nav>
           
           <div className="flex items-center space-x-4">
+            <CurrencySelector className="hidden sm:flex" />
+            
             <a href="#booking" className="hidden md:block">
               <Button variant="default" className="bg-black text-white hover:bg-black/90">
                 Rent Now
@@ -32,7 +58,10 @@ const Header: React.FC = () => {
               <SheetContent side="right" className="w-[300px] sm:w-[400px]">
                 <nav className="flex flex-col gap-4 mt-8">
                   <NavLinks />
-                  <a href="#booking" className="mt-4">
+                  <div className="mt-4">
+                    <CurrencySelector className="w-full mb-4" />
+                  </div>
+                  <a href="#booking" className="mt-2">
                     <Button className="w-full bg-black text-white hover:bg-black/90">
                       Rent Now
                     </Button>

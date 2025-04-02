@@ -28,11 +28,18 @@ model Car {
   power        String
   rating       String
   price        String
+  pricePerDay  String    @default("0") @map("price_per_day")
+  transmission String    @default("Automatic")
+  fuelType     String    @default("Gasoline") @map("fuel_type")
   image        String
+  gallery      String[]  @default([])
   special      String?
   specialColor String?   @map("special_color")
   description  String?
   features     String[]
+  available    Boolean   @default(true)
+  year         Int       @default(2023)
+  brand        String    @default("Unknown")
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   bookings     Booking[]
 
@@ -40,33 +47,37 @@ model Car {
 }
 
 model Booking {
-  id             Int      @id @default(autoincrement())
-  pickupLocation String   @map("pickup_location")
-  returnLocation String   @map("return_location")
-  pickupDate     String   @map("pickup_date")
-  returnDate     String   @map("return_date")
-  carType        String   @map("car_type")
-  carId          Int?     @map("car_id")
-  userId         Int?     @map("user_id")
-  name           String?
-  email          String?
-  phone          String?
-  status         String   @default("pending")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  car            Car?     @relation(fields: [carId], references: [id])
-  user           User?    @relation(fields: [userId], references: [id])
+  id                Int      @id @default(autoincrement())
+  pickupLocation    String   @map("pickup_location")
+  returnLocation    String   @map("return_location")
+  pickupDate        String   @map("pickup_date")
+  returnDate        String   @map("return_date")
+  carType           String   @map("car_type")
+  carId             Int?     @map("car_id")
+  userId            Int?     @map("user_id")
+  name              String?
+  email             String?
+  phone             String?
+  status            String   @default("pending")
+  rejectionReason   String?  @map("rejection_reason")
+  notificationSent  Boolean  @default(false) @map("notification_sent")
+  currency          String   @default("USD")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  car               Car?     @relation(fields: [carId], references: [id])
+  user              User?    @relation(fields: [userId], references: [id])
 
   @@map("bookings")
 }
 
 model SiteSettings {
-  id          Int      @id @default(autoincrement())
-  siteName    String   @default("Ether") @map("site_name")
-  logoColor   String   @default("#6843EC") @map("logo_color")
-  accentColor String   @default("#D2FF3A") @map("accent_color")
-  logoText    String   @default("ETHER") @map("logo_text")
-  customLogo  String?  @map("custom_logo")
-  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
+  id           Int      @id @default(autoincrement())
+  siteName     String   @default("Ether") @map("site_name")
+  logoColor    String   @default("#6843EC") @map("logo_color")
+  accentColor  String   @default("#D2FF3A") @map("accent_color")
+  logoText     String   @default("ETHER") @map("logo_text")
+  customLogo   String?  @map("custom_logo")
+  defaultCurrency String @default("USD") @map("default_currency")
+  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
 
   @@map("site_settings")
 }
