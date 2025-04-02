@@ -4,7 +4,7 @@ import session from "express-session";
 import memorystore from "memorystore";
 import { PrismaClient } from '@prisma/client';
 import { 
-  User, Booking, Car, SiteSettings, CarAvailability,
+  User, Booking, Car, SiteSettings, CarAvailability, UserPreferences,
   AppTypes 
 } from './types';
 
@@ -53,11 +53,13 @@ export class MemStorage implements IStorage {
   private bookings: Map<number, Booking>;
   private cars: Map<number, Car>;
   private carAvailabilities: Map<number, CarAvailability>;
+  private userPreferences: Map<number, UserPreferences>;
   private settings: SiteSettings;
   currentUserId: number;
   currentBookingId: number;
   currentCarId: number;
   currentAvailabilityId: number;
+  currentPreferencesId: number;
   sessionStore: any;
 
   constructor() {
@@ -65,10 +67,12 @@ export class MemStorage implements IStorage {
     this.bookings = new Map();
     this.cars = new Map();
     this.carAvailabilities = new Map();
+    this.userPreferences = new Map();
     this.currentUserId = 1;
     this.currentBookingId = 1;
     this.currentCarId = 1;
     this.currentAvailabilityId = 1;
+    this.currentPreferencesId = 1;
     
     // Create memory session store
     const MemoryStore = memorystore(session);
@@ -333,6 +337,72 @@ export class MemStorage implements IStorage {
       // If there are any availabilities for this car that are not available, the car is not available
       return !availabilities.some(availability => !availability.isAvailable);
     });
+  }
+
+  // User preferences operations
+  async getUserPreferences(userId: number): Promise<UserPreferences | undefined> {
+    // Find user preferences by userId
+    return Array.from(this.userPreferences.values()).find(
+      (preferences) => preferences.userId === userId
+    );
+  }
+
+  async createUserPreferences(preferences: AppTypes.UserPreferencesCreateInput): Promise<UserPreferences> {
+    const id = this.currentPreferencesId++;
+    const newPreferences: UserPreferences = {
+      ...preferences as any,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.userPreferences.set(id, newPreferences);
+    return newPreferences;
+  }
+
+  async updateUserPreferences(userId: number, preferences: AppTypes.UserPreferencesUpdateInput): Promise<UserPreferences | undefined> {
+    const existingPreferences = await this.getUserPreferences(userId);
+    if (!existingPreferences) return undefined;
+    
+    const updatedPreferences: UserPreferences = {
+      ...existingPreferences,
+      ...preferences as any,
+      updatedAt: new Date()
+    };
+    this.userPreferences.set(existingPreferences.id, updatedPreferences);
+    return updatedPreferences;
+  }
+
+  async getRecommendedCars(userId: number, limit: number = 3): Promise<Car[]> {
+    // Get user preferences
+    const preferences = await this.getUserPreferences(userId);
+    if (!preferences) return [];
+    
+    // Filter cars based on preferences
+    let allCars = await this.getAllCars();
+    
+    // First filter by car type
+    let filteredCars = allCars.filter(car => {
+      // Match by car type or features
+      return (
+        preferences.preferredCarTypes.includes(car.type) || 
+        car.features.some(feature => preferences.preferredFeatures.includes(feature))
+      );
+    });
+    
+    // Apply additional filters if present
+    if (preferences.minSeats) {
+      filteredCars = filteredCars.filter(car => car.seats >= preferences.minSeats!);
+    }
+    
+    // Sort by rating (highest first)
+    filteredCars.sort((a, b) => {
+      const ratingA = parseFloat(a.rating);
+      const ratingB = parseFloat(b.rating);
+      return ratingB - ratingA;
+    });
+    
+    // Limit results
+    return filteredCars.slice(0, limit);
   }
 }
 
@@ -839,6 +909,93 @@ export class DatabaseStorage implements IStorage {
       }));
     } catch (error) {
       console.error('Error getting available cars:', error);
+      return [];
+    }
+  }
+
+  // User preferences operations
+  async getUserPreferences(userId: number): Promise<UserPreferences | undefined> {
+    try {
+      const preferences = await prisma.userPreferences.findFirst({
+        where: { userId }
+      });
+      return preferences || undefined;
+    } catch (error) {
+      console.error('Error getting user preferences:', error);
+      return undefined;
+    }
+  }
+
+  async createUserPreferences(preferences: AppTypes.UserPreferencesCreateInput): Promise<UserPreferences> {
+    try {
+      return await prisma.userPreferences.create({
+        data: preferences as any
+      });
+    } catch (error) {
+      console.error('Error creating user preferences:', error);
+      throw error;
+    }
+  }
+
+  async updateUserPreferences(userId: number, preferences: AppTypes.UserPreferencesUpdateInput): Promise<UserPreferences | undefined> {
+    try {
+      const existingPreferences = await this.getUserPreferences(userId);
+      if (!existingPreferences) return undefined;
+
+      return await prisma.userPreferences.update({
+        where: { id: existingPreferences.id },
+        data: preferences as any
+      });
+    } catch (error) {
+      console.error('Error updating user preferences:', error);
+      return undefined;
+    }
+  }
+
+  async getRecommendedCars(userId: number, limit: number = 3): Promise<Car[]> {
+    try {
+      // Get user preferences
+      const preferences = await this.getUserPreferences(userId);
+      if (!preferences) return [];
+
+      // Build query based on preferences
+      let carsQuery = prisma.car.findMany({
+        where: {
+          OR: [
+            { type: { in: preferences.preferredCarTypes } },
+            { features: { hasSome: preferences.preferredFeatures } }
+          ]
+        },
+        orderBy: [
+          { rating: 'desc' }
+        ],
+        take: limit
+      });
+
+      // Add seat count filter if provided
+      if (preferences.minSeats) {
+        carsQuery = prisma.car.findMany({
+          where: {
+            AND: [
+              { 
+                OR: [
+                  { type: { in: preferences.preferredCarTypes } },
+                  { features: { hasSome: preferences.preferredFeatures } }
+                ]
+              },
+              { seats: { gte: preferences.minSeats } }
+            ]
+          },
+          orderBy: [
+            { rating: 'desc' }
+          ],
+          take: limit
+        });
+      }
+
+      return await carsQuery;
+    } catch (error) {
+      console.error('Error getting recommended cars:', error);
       return [];
     }
   }

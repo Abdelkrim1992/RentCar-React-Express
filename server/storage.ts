@@ -5,7 +5,8 @@ import {
   type Booking, type InsertBooking,
   type Car, type InsertCar,
   type SiteSettings, type InsertSiteSettings,
-  type CarAvailability, type InsertCarAvailability
+  type CarAvailability, type InsertCarAvailability,
+  type UserPreferences, type InsertUserPreferences
 } from "@shared/schema";
 
 // Extended interface with all CRUD methods needed for the application
@@ -42,6 +43,12 @@ export interface IStorage {
   updateCarAvailability(id: number, availability: Partial<InsertCarAvailability>): Promise<CarAvailability | undefined>;
   deleteCarAvailability(id: number): Promise<boolean>;
   getAvailableCars(startDate: Date, endDate: Date, carType?: string): Promise<Car[]>;
+  
+  // User preferences operations
+  getUserPreferences(userId: number): Promise<UserPreferences | undefined>;
+  createUserPreferences(preferences: InsertUserPreferences): Promise<UserPreferences>;
+  updateUserPreferences(userId: number, preferences: Partial<InsertUserPreferences>): Promise<UserPreferences | undefined>;
+  getRecommendedCars(userId: number, limit?: number): Promise<Car[]>;
   
   // Session store
   sessionStore: any;

@@ -66,6 +66,19 @@ export type CarAvailability = {
   };
 };
 
+export type UserPreferences = {
+  id: number;
+  userId: number;
+  preferredCarTypes: string[];
+  preferredFeatures: string[];
+  minSeats?: number;
+  maxBudget?: number;
+  travelPurpose?: string;
+  rentalFrequency?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export namespace AppTypes {
   export type UserCreateInput = {
     username: string;
@@ -137,5 +150,24 @@ export namespace AppTypes {
     startDate?: Date;
     endDate?: Date;
     isAvailable?: boolean;
+  };
+  
+  export type UserPreferencesCreateInput = {
+    userId: number;
+    preferredCarTypes: string[];
+    preferredFeatures: string[];
+    minSeats?: number;
+    maxBudget?: number;
+    travelPurpose?: string;
+    rentalFrequency?: string;
+  };
+  
+  export type UserPreferencesUpdateInput = {
+    preferredCarTypes?: string[];
+    preferredFeatures?: string[];
+    minSeats?: number;
+    maxBudget?: number;
+    travelPurpose?: string;
+    rentalFrequency?: string;
   };
 }

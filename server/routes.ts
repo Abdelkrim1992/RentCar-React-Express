@@ -51,6 +51,16 @@ const carAvailabilitySchema = z.object({
   isAvailable: z.boolean().optional().default(true),
 });
 
+const userPreferencesSchema = z.object({
+  userId: z.number(),
+  preferredCarTypes: z.array(z.string()),
+  preferredFeatures: z.array(z.string()),
+  minSeats: z.number().int().positive().optional(),
+  maxBudget: z.number().positive().optional(),
+  travelPurpose: z.string().optional(),
+  rentalFrequency: z.string().optional(),
+});
+
 // Middleware to check if user is admin
 const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -568,6 +578,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: "Failed to fetch available cars. Please try again later.",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // =============== USER PREFERENCES ROUTES ===============
+
+  // Get user preferences (protected route)
+  app.get("/api/user/preferences", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: "Not authenticated"
+        });
+      }
+      
+      const preferences = await storage.getUserPreferences(user.id);
+      
+      if (!preferences) {
+        return res.status(404).json({
+          success: false,
+          message: "User preferences not found"
+        });
+      }
+      
+      res.status(200).json({
+        success: true,
+        data: preferences
+      });
+    } catch (error) {
+      console.error("Error fetching user preferences:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch user preferences",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
+  // Create or update user preferences (protected route)
+  app.post("/api/user/preferences", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: "Not authenticated"
+        });
+      }
+      
+      // Add userId to the preferences data
+      const preferencesData = {
+        ...req.body,
+        userId: user.id
+      };
+      
+      // Validate the data
+      const validatedData = userPreferencesSchema.parse(preferencesData);
+      
+      // Check if user preferences already exist
+      const existingPreferences = await storage.getUserPreferences(user.id);
+      
+      let preferences;
+      if (existingPreferences) {
+        // Update existing preferences
+        preferences = await storage.updateUserPreferences(user.id, validatedData);
+      } else {
+        // Create new preferences
+        preferences = await storage.createUserPreferences(validatedData);
+      }
+      
+      res.status(200).json({
+        success: true,
+        message: "User preferences saved successfully",
+        data: preferences
+      });
+    } catch (error) {
+      console.error("Error saving user preferences:", error);
+      res.status(400).json({
+        success: false,
+        message: "Invalid user preferences data",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
+  // Get recommended cars for user (protected route)
+  app.get("/api/user/recommendations", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: "Not authenticated"
+        });
+      }
+      
+      // Get limit from query params, default to 3
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 3;
+      
+      try {
+        const recommendedCars = await storage.getRecommendedCars(user.id, limit);
+        
+        res.status(200).json({
+          success: true,
+          data: recommendedCars
+        });
+      } catch (dbError) {
+        console.error("Database error fetching recommended cars:", dbError);
+        
+        // Fallback to returning a few random cars if recommendation system fails
+        const fallbackCars = await storage.getAllCars();
+        const randomCars = fallbackCars
+          .sort(() => 0.5 - Math.random()) // Simple shuffle
+          .slice(0, limit);
+        
+        res.status(200).json({
+          success: true,
+          data: randomCars,
+          message: "Personalized recommendations are temporarily unavailable."
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching recommended cars:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch recommended cars",
         error: error instanceof Error ? error.message : "Unknown error"
       });
     }
