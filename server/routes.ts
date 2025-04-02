@@ -384,16 +384,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // =============== CAR AVAILABILITY ROUTES ===============
   
-  // Get all car availabilities
+  // Get all car availabilities (this specific route must be defined BEFORE any routes with params like :id)
   app.get("/api/cars/availability", isAdmin, async (req, res) => {
     try {
       console.log("Fetching all car availabilities");
       
+      // Check if a car ID is provided as a query parameter
+      const carId = req.query.carId ? parseInt(req.query.carId as string) : null;
+      console.log(`Availability query with carId: ${carId}`);
+      
       // Try to get car availabilities, but return empty array if database issues occur
       let availabilities: any[] = [];
       try {
-        availabilities = await storage.getAllCarAvailabilities();
-        console.log(`Retrieved ${availabilities.length} car availabilities`);
+        if (carId) {
+          // If a carId query param is specified, get availabilities for that car
+          const car = await storage.getCarById(carId);
+          if (!car) {
+            return res.status(404).json({
+              success: false,
+              message: `Car with ID ${carId} not found`
+            });
+          }
+          availabilities = await storage.getCarAvailabilities(carId);
+          console.log(`Retrieved ${availabilities.length} availabilities for car ID: ${carId}`);
+        } else {
+          // Otherwise, get all availabilities
+          availabilities = await storage.getAllCarAvailabilities();
+          console.log(`Retrieved ${availabilities.length} car availabilities`);
+        }
       } catch (dbError) {
         console.error("Database error fetching car availabilities:", dbError);
         // Return empty array instead of error when table doesn't exist
@@ -413,7 +431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get car availabilities by car ID
+  // Get car availabilities by car ID (make sure this route is defined AFTER the /api/cars/availability route)
   app.get("/api/cars/:id/availability", isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
