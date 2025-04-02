@@ -213,7 +213,7 @@ const CarCard: React.FC<CarCardProps> = ({ car, index }) => {
               className="bg-black text-white hover:bg-black/90"
               asChild
             >
-              <a href="#booking">Rent</a>
+              <Link href={`/booking/${car.id}`}>Rent</Link>
             </Button>
           </div>
         </div>
