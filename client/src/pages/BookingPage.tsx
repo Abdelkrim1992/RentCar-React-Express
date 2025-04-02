@@ -116,9 +116,15 @@ const BookingPage: React.FC = () => {
     };
   }, []);
 
+  // Debug logging
+  useEffect(() => {
+    console.log("Booking - Car ID from params:", carId);
+  }, [carId]);
+
   // Fetch car details from API
   const { data: carResponse, isLoading: isLoadingCar } = useQuery<CarResponse>({
-    queryKey: ['/api/cars', carId],
+    queryKey: [`/api/cars/${carId}`],
+    queryFn: getQueryFn({ on401: 'returnNull' }),
     enabled: !!carId,
   });
 

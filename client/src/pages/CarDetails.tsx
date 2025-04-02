@@ -48,6 +48,11 @@ const CarDetails: React.FC = () => {
   const [, params] = useRoute('/cars/:id');
   const carId = params?.id;
   const [, navigate] = useLocation();
+  
+  // Debug logging
+  useEffect(() => {
+    console.log("Car ID from params:", carId);
+  }, [carId]);
   const [currency, setCurrency] = useState('USD');
   
   // Listen for currency change events
@@ -70,7 +75,7 @@ const CarDetails: React.FC = () => {
   }, []);
   
   const { data: carResponse, isLoading, error } = useQuery<CarResponse>({
-    queryKey: ['/api/cars', carId],
+    queryKey: [`/api/cars/${carId}`],
     queryFn: getQueryFn({ on401: 'returnNull' }),
     enabled: !!carId,
   });
