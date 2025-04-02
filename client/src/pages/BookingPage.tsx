@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import { CalendarIcon, ChevronLeft, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { apiRequest, queryClient } from '@/lib/queryClient';
+import { apiRequest, queryClient, getQueryFn } from '@/lib/queryClient';
 import { formatPrice } from '@/components/CurrencySelector';
 
 import { Button } from '@/components/ui/button';
