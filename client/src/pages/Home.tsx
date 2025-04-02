@@ -9,12 +9,14 @@ import Booking from '@/components/Booking';
 import Testimonials from '@/components/Testimonials';
 import AppDownload from '@/components/AppDownload';
 import Footer from '@/components/Footer';
+import AvailabilityChecker from '@/components/AvailabilityChecker';
 
 const Home: React.FC = () => {
   return (
     <div className="min-h-screen bg-white">
       <Header />
       <Hero />
+      <AvailabilityChecker />
       <Partners />
       <CarsShowcase />
       <Features />

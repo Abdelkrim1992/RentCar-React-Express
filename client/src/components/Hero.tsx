@@ -29,7 +29,7 @@ const Hero: React.FC = () => {
                 className="px-8 py-6 bg-black text-white hover:bg-black/90 font-semibold text-base"
                 asChild
               >
-                <a href="#booking">Book a Car</a>
+                <a href="#availability-checker">Book a Car</a>
               </Button>
               <Button 
                 variant="outline" 
