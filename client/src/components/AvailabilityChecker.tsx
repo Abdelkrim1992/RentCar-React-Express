@@ -4,10 +4,11 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Calendar as CalendarIcon, Search, Car } from 'lucide-react';
+import { Calendar as CalendarIcon, Search, Car, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
+import { formatPrice } from '@/components/CurrencySelector';
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -35,11 +36,10 @@ import {
   Card,
   CardContent,
 } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
-interface CarType {
-  id: number;
-  type: string;
-}
+// Import car type from CarsShowcase
+import { CarType } from '@/components/CarsShowcase';
 
 interface ApiResponse {
   success: boolean;
@@ -68,11 +68,11 @@ type AvailabilityFormValues = z.infer<typeof availabilityFormSchema>;
 
 const AvailabilityChecker: React.FC = () => {
   const [, navigate] = useLocation();
-  const [showResult, setShowResult] = useState(false);
-  const [isAvailable, setIsAvailable] = useState(false);
-  const [carId, setCarId] = useState<number | null>(null);
-
-  // Fetch car types from API
+  const [searched, setSearched] = useState(false);
+  const [selectedCarType, setSelectedCarType] = useState<string>('');
+  const [currency, setCurrency] = useState('USD');
+  
+  // Fetch all cars from API
   const { data: carsResponse, isLoading } = useQuery<ApiResponse>({
     queryKey: ['/api/cars'],
   });
@@ -81,6 +81,28 @@ const AvailabilityChecker: React.FC = () => {
   const carTypes = carsResponse?.data
     ? Array.from(new Set(carsResponse.data.map(car => car.type)))
     : [];
+
+  // State to hold filtered cars
+  const [filteredCars, setFilteredCars] = useState<CarType[]>([]);
+
+  // Listen for currency change events
+  React.useEffect(() => {
+    const handleCurrencyChange = (event: CustomEvent) => {
+      setCurrency(event.detail.currency);
+    };
+    
+    window.addEventListener('currencyChange', handleCurrencyChange as EventListener);
+    
+    // Check for saved currency in localStorage on initial load
+    const savedCurrency = localStorage.getItem('ether_currency');
+    if (savedCurrency) {
+      setCurrency(savedCurrency);
+    }
+    
+    return () => {
+      window.removeEventListener('currencyChange', handleCurrencyChange as EventListener);
+    };
+  }, []);
 
   // Initialize form
   const form = useForm<AvailabilityFormValues>({
@@ -92,41 +114,42 @@ const AvailabilityChecker: React.FC = () => {
     },
   });
 
-  // Simulated availability check (in a real app, this would check against actual bookings)
-  function checkAvailability(data: AvailabilityFormValues) {
-    setShowResult(true);
-    
-    // For demo purposes: 80% chance of available cars
-    const randomAvailable = Math.random() > 0.2;
-    setIsAvailable(randomAvailable);
+  // Calculate number of days between pickup and return dates
+  const daysBetween = (date1: Date, date2: Date) => {
+    const diffTime = Math.abs(date2.getTime() - date1.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
 
-    if (randomAvailable && carsResponse?.data) {
-      // Find a car of the selected type
+  // Function to check availability and filter cars by type
+  function checkAvailability(data: AvailabilityFormValues) {
+    setSearched(true);
+    setSelectedCarType(data.carType);
+    
+    // In a real app, this would check against actual bookings in the database
+    // For now, we'll just filter cars by the selected type
+    if (carsResponse?.data) {
       const matchingCars = carsResponse.data.filter(car => car.type === data.carType);
-      if (matchingCars.length > 0) {
-        // Select the first matching car
-        setCarId(matchingCars[0].id);
-      }
+      setFilteredCars(matchingCars);
     }
   }
 
-  // Handle booking button click
-  const handleBookNow = () => {
-    if (carId) {
-      navigate(`/booking/${carId}`);
-    }
-  };
-
   return (
-    <section id="availability-checker" className="bg-white">
-      <div className="container mx-auto px-6 -mt-20">
+    <section id="availability-checker" className="bg-white py-16">
+      <div className="container mx-auto px-6">
+        <div className="text-center mb-10">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Find Your Perfect Ride</h2>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Select your dates and preferred car type to see our available vehicles for your trip
+          </p>
+        </div>
+        
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
+          transition={{ duration: 0.6 }}
           className="relative z-10"
         >
-          <Card className="shadow-lg border-0 rounded-2xl overflow-hidden">
+          <Card className="shadow-lg border-0 rounded-2xl overflow-hidden mb-10">
             <CardContent className="p-0">
               <div className="bg-gradient-to-r from-[#6843EC]/90 to-[#D2FF3A]/90 p-6 text-white">
                 <h2 className="text-2xl font-bold mb-2">Check Availability</h2>
@@ -271,52 +294,131 @@ const AvailabilityChecker: React.FC = () => {
                     </div>
                   </form>
                 </Form>
-                
-                {/* Availability Results */}
-                {showResult && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    transition={{ duration: 0.4 }}
-                    className="mt-6 pt-6 border-t"
-                  >
-                    {isAvailable ? (
-                      <div className="text-center">
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-600 mb-4">
-                          <Car className="h-8 w-8" />
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">Vehicles Available!</h3>
-                        <p className="text-gray-600 mb-6">Great news! We have vehicles matching your criteria available for your selected dates.</p>
-                        <Button 
-                          onClick={handleBookNow}
-                          className="bg-black hover:bg-black/90 text-white"
-                        >
-                          Book Now
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="text-center">
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 text-red-600 mb-4">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">No Vehicles Available</h3>
-                        <p className="text-gray-600 mb-6">We're sorry, but there are no vehicles available for your selected dates. Please try different dates or car type.</p>
-                        <Button 
-                          variant="outline"
-                          onClick={() => setShowResult(false)}
-                          className="border-black text-black hover:bg-black hover:text-white"
-                        >
-                          Try Different Dates
-                        </Button>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
               </div>
             </CardContent>
           </Card>
+          
+          {/* Display available cars */}
+          {searched && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <div className="mb-8">
+                <h3 className="text-2xl font-bold mb-2">
+                  {filteredCars.length > 0 
+                    ? `Available ${selectedCarType} Cars (${filteredCars.length})` 
+                    : `No ${selectedCarType} Cars Available`}
+                </h3>
+                <p className="text-gray-600">
+                  {filteredCars.length > 0 
+                    ? `Book your ${selectedCarType} for ${daysBetween(form.watch('pickupDate'), form.watch('returnDate'))} days`
+                    : "Please try different dates or car type"}
+                </p>
+              </div>
+              
+              {filteredCars.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredCars.map((car) => {
+                    // Calculate rental price for the selected period
+                    const days = daysBetween(form.watch('pickupDate'), form.watch('returnDate'));
+                    const totalPrice = parseFloat(car.price) * days;
+                    
+                    return (
+                      <motion.div 
+                        key={car.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.1 * (car.id % 5) }}
+                        className="group"
+                      >
+                        <Card className="overflow-hidden h-full hover:shadow-lg transition-shadow duration-300 border-0 shadow">
+                          <div className="relative">
+                            <img 
+                              src={car.image || "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=500&h=300&q=80"} 
+                              alt={car.name}
+                              className="w-full h-48 object-cover"
+                            />
+                            {car.special && (
+                              <Badge 
+                                className={`absolute top-4 left-4 px-2 py-1 text-xs ${car.specialColor || 'bg-red-500'}`}
+                              >
+                                {car.special}
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <CardContent className="p-6">
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h3 className="font-bold text-lg">{car.name}</h3>
+                                <p className="text-sm text-gray-500">{car.type}</p>
+                              </div>
+                              <div className="flex items-center">
+                                <Star className="h-4 w-4 text-yellow-400 fill-yellow-400 mr-1" />
+                                <span className="text-sm font-medium">{car.rating}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-3 mb-4">
+                              <div className="flex items-center">
+                                <div className="p-1.5 rounded-lg bg-gray-100 mr-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                  </svg>
+                                </div>
+                                <span className="text-sm">{car.power}</span>
+                              </div>
+                              <div className="flex items-center">
+                                <div className="p-1.5 rounded-lg bg-gray-100 mr-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                  </svg>
+                                </div>
+                                <span className="text-sm">{car.seats} Seats</span>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-baseline justify-between pt-3 border-t">
+                              <div>
+                                <p className="text-sm text-gray-500">Total for {days} days</p>
+                                <p className="text-xl font-bold">{formatPrice(totalPrice, currency)}</p>
+                              </div>
+                              <Button 
+                                onClick={() => navigate(`/booking/${car.id}`)}
+                                className="bg-black hover:bg-black/90 text-white"
+                                size="sm"
+                              >
+                                Book Now
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center p-10 bg-gray-50 rounded-lg">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 text-red-600 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Vehicles Available</h3>
+                  <p className="text-gray-600 mb-6">We couldn't find any {selectedCarType} cars available for your selected dates.</p>
+                  <Button 
+                    variant="outline"
+                    onClick={() => form.reset()}
+                    className="border-black text-black hover:bg-black hover:text-white"
+                  >
+                    Try Different Options
+                  </Button>
+                </div>
+              )}
+            </motion.div>
+          )}
         </motion.div>
       </div>
     </section>

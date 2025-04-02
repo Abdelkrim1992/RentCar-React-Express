@@ -16,8 +16,8 @@ const Home: React.FC = () => {
     <div className="min-h-screen bg-white">
       <Header />
       <Hero />
-      <AvailabilityChecker />
       <Partners />
+      <AvailabilityChecker />
       <CarsShowcase />
       <Features />
       <Stats />
