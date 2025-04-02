@@ -39,6 +39,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         <nav className="flex-1 p-4 space-y-1">
           <NavLink href="/admin" icon={<Home size={18} />} label="Dashboard" isActive={location === '/admin'} />
           <NavLink href="/admin/cars" icon={<Car size={18} />} label="Cars" isActive={location === '/admin/cars'} />
+          <NavLink href="/admin/availability" icon={<Wrench size={18} />} label="Car Availability" isActive={location === '/admin/availability'} />
           <NavLink href="/admin/bookings" icon={<Calendar size={18} />} label="Bookings" isActive={location === '/admin/bookings'} />
           <NavLink href="/admin/stats" icon={<BarChart size={18} />} label="Statistics" isActive={location === '/admin/stats'} />
           <NavLink href="/admin/settings" icon={<Settings size={18} />} label="Settings" isActive={location === '/admin/settings'} />
@@ -84,6 +85,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           <Link href="/admin/cars">
             <Button variant="ghost" size="icon">
               <Car size={20} />
+            </Button>
+          </Link>
+          <Link href="/admin/availability">
+            <Button variant="ghost" size="icon">
+              <Wrench size={20} />
             </Button>
           </Link>
           <Link href="/admin/settings">

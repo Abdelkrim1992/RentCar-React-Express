@@ -120,17 +120,26 @@ const AvailabilityChecker: React.FC = () => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // Function to check availability and filter cars by type
+  // Function to check availability using the server API
   function checkAvailability(data: AvailabilityFormValues) {
     setSearched(true);
     setSelectedCarType(data.carType);
     
-    // In a real app, this would check against actual bookings in the database
-    // For now, we'll just filter cars by the selected type
-    if (carsResponse?.data) {
-      const matchingCars = carsResponse.data.filter(car => car.type === data.carType);
-      setFilteredCars(matchingCars);
-    }
+    // Query server for available cars
+    fetch(`/api/cars/available?startDate=${data.pickupDate.toISOString()}&endDate=${data.returnDate.toISOString()}&type=${encodeURIComponent(data.carType)}`)
+      .then(response => response.json())
+      .then(result => {
+        if (result.success) {
+          setFilteredCars(result.data);
+        } else {
+          setFilteredCars([]);
+          console.error('Error fetching available cars:', result.error);
+        }
+      })
+      .catch(error => {
+        console.error('Error checking availability:', error);
+        setFilteredCars([]);
+      });
   }
 
   return (

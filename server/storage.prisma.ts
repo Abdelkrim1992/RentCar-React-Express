@@ -4,7 +4,7 @@ import session from "express-session";
 import memorystore from "memorystore";
 import { PrismaClient } from '@prisma/client';
 import { 
-  User, Booking, Car, SiteSettings,
+  User, Booking, Car, SiteSettings, CarAvailability,
   AppTypes 
 } from './types';
 
@@ -35,6 +35,14 @@ export interface IStorage {
   getSiteSettings(): Promise<SiteSettings | undefined>;
   updateSiteSettings(settings: AppTypes.SiteSettingsUpdateInput): Promise<SiteSettings | undefined>;
   
+  // Car availability operations
+  createCarAvailability(availability: AppTypes.CarAvailabilityCreateInput): Promise<CarAvailability>;
+  getCarAvailabilities(carId: number): Promise<CarAvailability[]>;
+  getAllCarAvailabilities(): Promise<CarAvailability[]>;
+  updateCarAvailability(id: number, availability: AppTypes.CarAvailabilityUpdateInput): Promise<CarAvailability | undefined>;
+  deleteCarAvailability(id: number): Promise<boolean>;
+  getAvailableCars(startDate: Date, endDate: Date, carType?: string): Promise<Car[]>;
+  
   // Session store
   sessionStore: any;
 }
@@ -44,19 +52,23 @@ export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private bookings: Map<number, Booking>;
   private cars: Map<number, Car>;
+  private carAvailabilities: Map<number, CarAvailability>;
   private settings: SiteSettings;
   currentUserId: number;
   currentBookingId: number;
   currentCarId: number;
+  currentAvailabilityId: number;
   sessionStore: any;
 
   constructor() {
     this.users = new Map();
     this.bookings = new Map();
     this.cars = new Map();
+    this.carAvailabilities = new Map();
     this.currentUserId = 1;
     this.currentBookingId = 1;
     this.currentCarId = 1;
+    this.currentAvailabilityId = 1;
     
     // Create memory session store
     const MemoryStore = memorystore(session);
@@ -252,6 +264,75 @@ export class MemStorage implements IStorage {
     };
     return this.settings;
   }
+  
+  // Car availability operations
+  async createCarAvailability(availability: AppTypes.CarAvailabilityCreateInput): Promise<CarAvailability> {
+    const id = this.currentAvailabilityId++;
+    const newAvailability: CarAvailability = {
+      ...availability as any,
+      id,
+      isAvailable: availability.isAvailable ?? true,
+      createdAt: new Date(),
+    };
+    this.carAvailabilities.set(id, newAvailability);
+    return newAvailability;
+  }
+  
+  async getCarAvailabilities(carId: number): Promise<CarAvailability[]> {
+    return Array.from(this.carAvailabilities.values()).filter(availability => availability.carId === carId);
+  }
+  
+  async getAllCarAvailabilities(): Promise<CarAvailability[]> {
+    return Array.from(this.carAvailabilities.values());
+  }
+  
+  async updateCarAvailability(id: number, availability: AppTypes.CarAvailabilityUpdateInput): Promise<CarAvailability | undefined> {
+    const existingAvailability = this.carAvailabilities.get(id);
+    if (!existingAvailability) return undefined;
+    
+    const updatedAvailability: CarAvailability = { ...existingAvailability, ...availability as any };
+    this.carAvailabilities.set(id, updatedAvailability);
+    return updatedAvailability;
+  }
+  
+  async deleteCarAvailability(id: number): Promise<boolean> {
+    return this.carAvailabilities.delete(id);
+  }
+  
+  async getAvailableCars(startDate: Date, endDate: Date, carType?: string): Promise<Car[]> {
+    // Get all availabilities that overlap with the given date range
+    const overlappingAvailabilities = Array.from(this.carAvailabilities.values()).filter(availability => {
+      return availability.startDate <= endDate && availability.endDate >= startDate;
+    });
+    
+    // Group availabilities by car ID
+    const availabilityByCarId = new Map<number, CarAvailability[]>();
+    overlappingAvailabilities.forEach(availability => {
+      const entries = availabilityByCarId.get(availability.carId) || [];
+      entries.push(availability);
+      availabilityByCarId.set(availability.carId, entries);
+    });
+    
+    // Get all cars
+    let cars = this.getAllCars();
+    
+    // Filter by type if specified
+    if (carType && carType !== 'All Cars') {
+      cars = cars.filter(car => car.type === carType);
+    }
+    
+    // Filter available cars
+    return cars.filter(car => {
+      // If there are no availabilities for this car, it's considered available
+      const availabilities = availabilityByCarId.get(car.id);
+      if (!availabilities || availabilities.length === 0) {
+        return true;
+      }
+      
+      // If there are any availabilities for this car that are not available, the car is not available
+      return !availabilities.some(availability => !availability.isAvailable);
+    });
+  }
 }
 
 // Database storage implementation with Prisma ORM
@@ -409,10 +490,33 @@ export class DatabaseStorage implements IStorage {
   
   async getCarById(id: number): Promise<Car | undefined> {
     try {
-      const car = await prisma.car.findUnique({
-        where: { id }
-      });
-      return car || undefined;
+      const result = await prisma.$queryRaw`
+        SELECT * FROM cars WHERE id = ${id}
+      `;
+      
+      // Handle case where car doesn't exist
+      if (!result || (Array.isArray(result) && result.length === 0)) {
+        return undefined;
+      }
+      
+      // Convert the raw result to our Car type
+      const row = Array.isArray(result) ? result[0] : result;
+      
+      return {
+        id: Number(row.id),
+        name: row.name,
+        type: row.type,
+        seats: Number(row.seats),
+        power: row.power,
+        rating: row.rating,
+        price: row.price,
+        image: row.image,
+        special: row.special,
+        specialColor: row.special_color,
+        description: row.description,
+        features: row.features || [],
+        createdAt: new Date(row.created_at)
+      };
     } catch (error) {
       console.error('Error getting car by ID:', error);
       return undefined;
@@ -492,6 +596,249 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error updating site settings:', error);
       return undefined;
+    }
+  }
+  
+  // Car availability operations
+  async createCarAvailability(availability: AppTypes.CarAvailabilityCreateInput): Promise<CarAvailability> {
+    try {
+      const result = await prisma.$queryRaw`
+        INSERT INTO car_availabilities (car_id, start_date, end_date, is_available, created_at)
+        VALUES (${availability.carId}, ${availability.startDate}, ${availability.endDate}, ${availability.isAvailable ?? true}, NOW())
+        RETURNING id, car_id, start_date, end_date, is_available, created_at
+      `;
+      
+      // Convert the raw result to our CarAvailability type
+      const created = Array.isArray(result) ? result[0] : result;
+      return {
+        id: Number(created.id),
+        carId: Number(created.car_id),
+        startDate: new Date(created.start_date),
+        endDate: new Date(created.end_date),
+        isAvailable: Boolean(created.is_available),
+        createdAt: new Date(created.created_at)
+      };
+    } catch (error) {
+      console.error('Error creating car availability:', error);
+      throw error;
+    }
+  }
+  
+  async getCarAvailabilities(carId: number): Promise<CarAvailability[]> {
+    try {
+      const result = await prisma.$queryRaw`
+        SELECT ca.*, c.name as car_name, c.type as car_type 
+        FROM car_availabilities ca
+        JOIN cars c ON ca.car_id = c.id
+        WHERE ca.car_id = ${carId}
+      `;
+      
+      // Convert the raw result to our CarAvailability type
+      return (Array.isArray(result) ? result : [result]).map(row => ({
+        id: Number(row.id),
+        carId: Number(row.car_id),
+        startDate: new Date(row.start_date),
+        endDate: new Date(row.end_date),
+        isAvailable: Boolean(row.is_available),
+        createdAt: new Date(row.created_at),
+        car: row.car_name ? {
+          id: Number(row.car_id),
+          name: row.car_name,
+          type: row.car_type
+        } : undefined
+      }));
+    } catch (error) {
+      console.error('Error getting car availabilities by car ID:', error);
+      return [];
+    }
+  }
+  
+  async getAllCarAvailabilities(): Promise<CarAvailability[]> {
+    try {
+      const result = await prisma.$queryRaw`
+        SELECT ca.*, c.name as car_name, c.type as car_type 
+        FROM car_availabilities ca
+        JOIN cars c ON ca.car_id = c.id
+      `;
+      
+      // Convert the raw result to our CarAvailability type
+      return (Array.isArray(result) ? result : [result]).map(row => ({
+        id: Number(row.id),
+        carId: Number(row.car_id),
+        startDate: new Date(row.start_date),
+        endDate: new Date(row.end_date),
+        isAvailable: Boolean(row.is_available),
+        createdAt: new Date(row.created_at),
+        car: row.car_name ? {
+          id: Number(row.car_id),
+          name: row.car_name,
+          type: row.car_type
+        } : undefined
+      }));
+    } catch (error) {
+      console.error('Error getting all car availabilities:', error);
+      return [];
+    }
+  }
+  
+  async updateCarAvailability(id: number, availability: AppTypes.CarAvailabilityUpdateInput): Promise<CarAvailability | undefined> {
+    try {
+      // Simple update query with explicit parameters
+      let query = 'UPDATE car_availabilities SET ';
+      const updateParts = [];
+      const queryParams: any[] = [];
+      
+      if (availability.carId !== undefined) {
+        updateParts.push('car_id = ?');
+        queryParams.push(availability.carId);
+      }
+      
+      if (availability.startDate !== undefined) {
+        updateParts.push('start_date = ?');
+        queryParams.push(availability.startDate);
+      }
+      
+      if (availability.endDate !== undefined) {
+        updateParts.push('end_date = ?');
+        queryParams.push(availability.endDate);
+      }
+      
+      if (availability.isAvailable !== undefined) {
+        updateParts.push('is_available = ?');
+        queryParams.push(availability.isAvailable);
+      }
+      
+      if (updateParts.length === 0) {
+        // Nothing to update, just return the current value
+        const current = await prisma.$queryRaw`
+          SELECT ca.*, c.name as car_name, c.type as car_type 
+          FROM car_availabilities ca
+          JOIN cars c ON ca.car_id = c.id
+          WHERE ca.id = ${id}
+        `;
+        
+        if (!current || (Array.isArray(current) && current.length === 0)) {
+          return undefined;
+        }
+        
+        const row = Array.isArray(current) ? current[0] : current;
+        
+        return {
+          id: Number(row.id),
+          carId: Number(row.car_id),
+          startDate: new Date(row.start_date),
+          endDate: new Date(row.end_date),
+          isAvailable: Boolean(row.is_available),
+          createdAt: new Date(row.created_at),
+          car: row.car_name ? {
+            id: Number(row.car_id),
+            name: row.car_name,
+            type: row.car_type
+          } : undefined
+        };
+      }
+      
+      // Complete the query
+      query += updateParts.join(', ');
+      query += ' WHERE id = ?';
+      queryParams.push(id);
+      
+      // Execute the update
+      await prisma.$executeRawUnsafe(query, ...queryParams);
+      
+      // Fetch the updated record
+      const updated = await prisma.$queryRaw`
+        SELECT ca.*, c.name as car_name, c.type as car_type 
+        FROM car_availabilities ca
+        JOIN cars c ON ca.car_id = c.id
+        WHERE ca.id = ${id}
+      `;
+      
+      if (!updated || (Array.isArray(updated) && updated.length === 0)) {
+        return undefined;
+      }
+      
+      const row = Array.isArray(updated) ? updated[0] : updated;
+      
+      return {
+        id: Number(row.id),
+        carId: Number(row.car_id),
+        startDate: new Date(row.start_date),
+        endDate: new Date(row.end_date),
+        isAvailable: Boolean(row.is_available),
+        createdAt: new Date(row.created_at),
+        car: row.car_name ? {
+          id: Number(row.car_id),
+          name: row.car_name,
+          type: row.car_type
+        } : undefined
+      };
+    } catch (error) {
+      console.error('Error updating car availability:', error);
+      return undefined;
+    }
+  }
+  
+  async deleteCarAvailability(id: number): Promise<boolean> {
+    try {
+      const result = await prisma.$executeRaw`
+        DELETE FROM car_availabilities WHERE id = ${id}
+      `;
+      
+      return result > 0;
+    } catch (error) {
+      console.error('Error deleting car availability:', error);
+      return false;
+    }
+  }
+  
+  async getAvailableCars(startDate: Date, endDate: Date, carType?: string): Promise<Car[]> {
+    try {
+      // Construct the query for getting available cars
+      let query = `
+        SELECT c.*
+        FROM cars c
+        WHERE 
+          -- Either the car has no availability entries for the date range
+          NOT EXISTS (
+            SELECT 1 FROM car_availabilities ca 
+            WHERE ca.car_id = c.id 
+            AND ca.start_date <= $2 
+            AND ca.end_date >= $1 
+            AND ca.is_available = false
+          )
+      `;
+      
+      // Add car type filter if specified
+      const queryParams: any[] = [startDate, endDate];
+      
+      if (carType && carType !== 'All Cars') {
+        query += ` AND c.type = $3`;
+        queryParams.push(carType);
+      }
+      
+      // Execute the query
+      const result = await prisma.$queryRawUnsafe(query, ...queryParams);
+      
+      // Convert the raw result to our Car type
+      return (Array.isArray(result) ? result : [result]).map(row => ({
+        id: Number(row.id),
+        name: row.name,
+        type: row.type,
+        seats: Number(row.seats),
+        power: row.power,
+        rating: row.rating,
+        price: row.price,
+        image: row.image,
+        special: row.special,
+        specialColor: row.special_color,
+        description: row.description,
+        features: row.features || [],
+        createdAt: new Date(row.created_at)
+      }));
+    } catch (error) {
+      console.error('Error getting available cars:', error);
+      return [];
     }
   }
 }

@@ -123,14 +123,33 @@ export const insertSiteSettingsSchema = siteSettingsSchema.omit({
   defaultCurrency: z.string().optional(),
 });
 
+// Car Availability schemas
+export const carAvailabilitySchema = z.object({
+  id: z.number().int().positive(),
+  carId: z.number().int().positive(),
+  startDate: z.date(),
+  endDate: z.date(),
+  isAvailable: z.boolean().default(true),
+  createdAt: z.date()
+});
+
+export const insertCarAvailabilitySchema = carAvailabilitySchema.omit({ 
+  id: true, 
+  createdAt: true 
+}).extend({
+  isAvailable: z.boolean().optional().default(true),
+});
+
 // Export types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertCar = z.infer<typeof insertCarSchema>;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type InsertSiteSettings = z.infer<typeof insertSiteSettingsSchema>;
+export type InsertCarAvailability = z.infer<typeof insertCarAvailabilitySchema>;
 
 // Define the types directly here instead of importing from Prisma
 export type User = z.infer<typeof userSchema>;
 export type Car = z.infer<typeof carSchema>;
 export type Booking = z.infer<typeof bookingSchema>;
 export type SiteSettings = z.infer<typeof siteSettingsSchema>;
+export type CarAvailability = z.infer<typeof carAvailabilitySchema>;

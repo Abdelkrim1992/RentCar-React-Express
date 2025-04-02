@@ -52,6 +52,15 @@ export type SiteSettings = {
   updatedAt: Date;
 };
 
+export type CarAvailability = {
+  id: number;
+  carId: number;
+  startDate: Date;
+  endDate: Date;
+  isAvailable: boolean;
+  createdAt: Date;
+};
+
 export namespace AppTypes {
   export type UserCreateInput = {
     username: string;
@@ -109,5 +118,19 @@ export namespace AppTypes {
     accentColor?: string;
     logoText?: string;
     customLogo?: string | null;
+  };
+  
+  export type CarAvailabilityCreateInput = {
+    carId: number;
+    startDate: Date;
+    endDate: Date;
+    isAvailable?: boolean;
+  };
+  
+  export type CarAvailabilityUpdateInput = {
+    carId?: number;
+    startDate?: Date;
+    endDate?: Date;
+    isAvailable?: boolean;
   };
 }

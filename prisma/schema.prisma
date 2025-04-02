@@ -21,27 +21,28 @@ model User {
 }
 
 model Car {
-  id           Int       @id @default(autoincrement())
+  id           Int               @id @default(autoincrement())
   name         String
   type         String
   seats        Int
   power        String
   rating       String
   price        String
-  pricePerDay  String    @default("0") @map("price_per_day")
-  transmission String    @default("Automatic")
-  fuelType     String    @default("Gasoline") @map("fuel_type")
+  pricePerDay  String            @default("0") @map("price_per_day")
+  transmission String            @default("Automatic")
+  fuelType     String            @default("Gasoline") @map("fuel_type")
   image        String
-  gallery      String[]  @default([])
+  gallery      String[]          @default([])
   special      String?
-  specialColor String?   @map("special_color")
+  specialColor String?           @map("special_color")
   description  String?
   features     String[]
-  available    Boolean   @default(true)
-  year         Int       @default(2023)
-  brand        String    @default("Unknown")
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  available    Boolean           @default(true)
+  year         Int               @default(2023)
+  brand        String            @default("Unknown")
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
   bookings     Booking[]
+  availabilities CarAvailability[]
 
   @@map("cars")
 }
@@ -88,4 +89,16 @@ model session {
   expire DateTime @db.Timestamp(6)
 
   @@index([expire], map: "IDX_session_expire")
+}
+
+model CarAvailability {
+  id         Int      @id @default(autoincrement())
+  carId      Int      @map("car_id")
+  startDate  DateTime @map("start_date") @db.Date
+  endDate    DateTime @map("end_date") @db.Date
+  isAvailable Boolean @default(true) @map("is_available")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  car        Car      @relation(fields: [carId], references: [id])
+
+  @@map("car_availabilities")
 }

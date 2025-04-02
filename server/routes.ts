@@ -44,6 +44,13 @@ const siteSettingsSchema = z.object({
   customLogo: z.string().nullable().optional(),
 });
 
+const carAvailabilitySchema = z.object({
+  carId: z.number(),
+  startDate: z.date(),
+  endDate: z.date(),
+  isAvailable: z.boolean().optional().default(true),
+});
+
 // Middleware to check if user is admin
 const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -365,6 +372,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // =============== CAR AVAILABILITY ROUTES ===============
+  
+  // Get all car availabilities
+  app.get("/api/cars/availability", isAdmin, async (req, res) => {
+    try {
+      const availabilities = await storage.getAllCarAvailabilities();
+      
+      res.status(200).json({
+        success: true,
+        data: availabilities
+      });
+    } catch (error) {
+      console.error("Error fetching car availabilities:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch car availabilities",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
+  // Get car availabilities by car ID
+  app.get("/api/cars/:id/availability", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const availabilities = await storage.getCarAvailabilities(id);
+      
+      res.status(200).json({
+        success: true,
+        data: availabilities
+      });
+    } catch (error) {
+      console.error("Error fetching car availabilities:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch car availabilities",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
+  // Create a new car availability (admin access)
+  app.post("/api/cars/availability", isAdmin, async (req, res) => {
+    try {
+      // Parse dates from ISO strings to Date objects for Zod validation
+      const parsed = {
+        ...req.body,
+        startDate: new Date(req.body.startDate),
+        endDate: new Date(req.body.endDate)
+      };
+      
+      const availabilityData = carAvailabilitySchema.parse(parsed);
+      const availability = await storage.createCarAvailability(availabilityData);
+      
+      res.status(201).json({
+        success: true,
+        message: "Car availability created successfully",
+        data: availability
+      });
+    } catch (error) {
+      console.error("Error creating car availability:", error);
+      res.status(400).json({
+        success: false,
+        message: "Invalid car availability data",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
+  // Update a car availability (admin access)
+  app.patch("/api/cars/availability/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Parse dates from ISO strings to Date objects if they exist
+      const updatedData: any = { ...req.body };
+      if (req.body.startDate) updatedData.startDate = new Date(req.body.startDate);
+      if (req.body.endDate) updatedData.endDate = new Date(req.body.endDate);
+      
+      const updatedAvailability = await storage.updateCarAvailability(id, updatedData);
+      
+      if (!updatedAvailability) {
+        return res.status(404).json({
+          success: false,
+          message: `Car availability with ID ${id} not found`
+        });
+      }
+      
+      res.status(200).json({
+        success: true,
+        message: "Car availability updated successfully",
+        data: updatedAvailability
+      });
+    } catch (error) {
+      console.error("Error updating car availability:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to update car availability",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
+  // Delete a car availability (admin access)
+  app.delete("/api/cars/availability/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteCarAvailability(id);
+      
+      if (!deleted) {
+        return res.status(404).json({
+          success: false,
+          message: `Car availability with ID ${id} not found`
+        });
+      }
+      
+      res.status(200).json({
+        success: true,
+        message: "Car availability deleted successfully"
+      });
+    } catch (error) {
+      console.error("Error deleting car availability:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to delete car availability",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
+  // Get available cars for date range
+  app.get("/api/cars/available", async (req, res) => {
+    try {
+      const { startDate, endDate, type } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({
+          success: false,
+          message: "Start date and end date are required"
+        });
+      }
+      
+      const availableCars = await storage.getAvailableCars(
+        new Date(startDate as string),
+        new Date(endDate as string),
+        type as string
+      );
+      
+      res.status(200).json({
+        success: true,
+        data: availableCars
+      });
+    } catch (error) {
+      console.error("Error fetching available cars:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch available cars",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Auth routes are handled by setupAuth(app) at the beginning of this function
 
   const httpServer = createServer(app);

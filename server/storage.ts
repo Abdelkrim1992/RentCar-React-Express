@@ -4,7 +4,8 @@ import {
   type User, type InsertUser, 
   type Booking, type InsertBooking,
   type Car, type InsertCar,
-  type SiteSettings, type InsertSiteSettings
+  type SiteSettings, type InsertSiteSettings,
+  type CarAvailability, type InsertCarAvailability
 } from "@shared/schema";
 
 // Extended interface with all CRUD methods needed for the application
@@ -33,6 +34,14 @@ export interface IStorage {
   // Site settings operations
   getSiteSettings(): Promise<SiteSettings | undefined>;
   updateSiteSettings(settings: Partial<InsertSiteSettings>): Promise<SiteSettings | undefined>;
+  
+  // Car availability operations
+  createCarAvailability(availability: InsertCarAvailability): Promise<CarAvailability>;
+  getCarAvailabilities(carId: number): Promise<CarAvailability[]>;
+  getAllCarAvailabilities(): Promise<CarAvailability[]>;
+  updateCarAvailability(id: number, availability: Partial<InsertCarAvailability>): Promise<CarAvailability | undefined>;
+  deleteCarAvailability(id: number): Promise<boolean>;
+  getAvailableCars(startDate: Date, endDate: Date, carType?: string): Promise<Car[]>;
   
   // Session store
   sessionStore: any;
