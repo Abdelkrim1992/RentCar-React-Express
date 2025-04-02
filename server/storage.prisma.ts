@@ -313,16 +313,17 @@ export class MemStorage implements IStorage {
       availabilityByCarId.set(availability.carId, entries);
     });
     
-    // Get all cars
-    let cars = this.getAllCars();
+    // Get all cars as array
+    const allCars = await this.getAllCars();
     
     // Filter by type if specified
+    let filteredCars = [...allCars];
     if (carType && carType !== 'All Cars') {
-      cars = cars.filter(car => car.type === carType);
+      filteredCars = filteredCars.filter((car: Car) => car.type === carType);
     }
     
     // Filter available cars
-    return cars.filter(car => {
+    return filteredCars.filter((car: Car) => {
       // If there are no availabilities for this car, it's considered available
       const availabilities = availabilityByCarId.get(car.id);
       if (!availabilities || availabilities.length === 0) {

@@ -377,7 +377,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all car availabilities
   app.get("/api/cars/availability", isAdmin, async (req, res) => {
     try {
-      const availabilities = await storage.getAllCarAvailabilities();
+      // Try to get car availabilities, but return empty array if database issues occur
+      let availabilities: Array<any> = [];
+      try {
+        availabilities = await storage.getAllCarAvailabilities();
+      } catch (dbError) {
+        console.error("Database error fetching car availabilities:", dbError);
+        // Return empty array instead of error when table doesn't exist
+      }
       
       res.status(200).json({
         success: true,
@@ -397,7 +404,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/cars/:id/availability", isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const availabilities = await storage.getCarAvailabilities(id);
+      
+      // Try to get car availabilities, but return empty array if database issues occur
+      let availabilities: Array<any> = [];
+      try {
+        availabilities = await storage.getCarAvailabilities(id);
+      } catch (dbError) {
+        console.error("Database error fetching car availabilities for car ID:", id, dbError);
+        // Return empty array instead of error when table doesn't exist
+      }
       
       res.status(200).json({
         success: true,
@@ -514,21 +529,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const availableCars = await storage.getAvailableCars(
-        new Date(startDate as string),
-        new Date(endDate as string),
-        type as string
-      );
-      
-      res.status(200).json({
-        success: true,
-        data: availableCars
-      });
+      try {
+        const availableCars = await storage.getAvailableCars(
+          new Date(startDate as string),
+          new Date(endDate as string),
+          type as string
+        );
+        
+        res.status(200).json({
+          success: true,
+          data: availableCars
+        });
+      } catch (dbError) {
+        console.error("Database error fetching available cars:", dbError);
+        
+        // If it's a database error related to the car_availabilities table,
+        // fallback to returning all cars of the requested type
+        let fallbackCars = [];
+        try {
+          if (type && type !== 'All Cars') {
+            fallbackCars = await storage.getCarsByType(type as string);
+          } else {
+            fallbackCars = await storage.getAllCars();
+          }
+          
+          res.status(200).json({
+            success: true,
+            data: fallbackCars,
+            message: "Availability system is temporarily unavailable. Showing all cars."
+          });
+        } catch (fallbackError) {
+          // If fallback also fails, throw to the outer catch block
+          throw fallbackError;
+        }
+      }
     } catch (error) {
       console.error("Error fetching available cars:", error);
       res.status(500).json({
         success: false,
-        message: "Failed to fetch available cars",
+        message: "Failed to fetch available cars. Please try again later.",
         error: error instanceof Error ? error.message : "Unknown error"
       });
     }

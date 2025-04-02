@@ -7,6 +7,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { apiRequest } from '@/lib/queryClient';
 import { Calendar as CalendarIcon, Car, Plus, Edit, Trash2, Check, X } from 'lucide-react';
 
+// Define API response interface
+interface ApiResponse {
+  success: boolean;
+  data: any;
+  message?: string;
+}
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,14 +88,24 @@ const CarAvailabilityManager: React.FC = () => {
   const [selectedAvailability, setSelectedAvailability] = useState<CarAvailability | null>(null);
 
   // Get all cars
-  const { data: cars = [] } = useQuery<any, unknown, Car[]>({
+  const { data: carsResponse } = useQuery<ApiResponse>({
     queryKey: ['/api/cars'],
   });
+  
+  // Extract cars from response and ensure it's an array
+  const cars = Array.isArray(carsResponse?.data) ? carsResponse?.data : [];
 
   // Get all car availabilities
-  const { data: availabilities = [], isLoading } = useQuery<any, unknown, CarAvailability[]>({
+  const { data: availabilitiesResponse, isLoading, isError: availabilitiesError } = useQuery<ApiResponse>({
     queryKey: ['/api/cars/availability'],
+    retry: (failureCount, error: any) => {
+      // Retry network errors but not server errors
+      return failureCount < 2 && error?.status !== 500;
+    }
   });
+  
+  // Extract availabilities from response and ensure it's an array
+  const availabilities = Array.isArray(availabilitiesResponse?.data) ? availabilitiesResponse?.data : [];
 
   // Form for adding new car availability
   const form = useForm<CarAvailabilityFormValues>({
@@ -410,6 +427,17 @@ const CarAvailabilityManager: React.FC = () => {
         <CardContent>
           {isLoading ? (
             <p>Loading car availabilities...</p>
+          ) : availabilitiesError ? (
+            <div className="text-center p-8">
+              <p className="text-muted-foreground">There was an error loading car availabilities. The database table might need to be set up.</p>
+              <Button 
+                className="mt-4" 
+                variant="outline" 
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/cars/availability'] })}
+              >
+                Try Again
+              </Button>
+            </div>
           ) : availabilities.length === 0 ? (
             <div className="text-center p-8">
               <p className="text-muted-foreground">No car availabilities found. Add some using the button above.</p>

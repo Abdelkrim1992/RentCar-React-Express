@@ -59,6 +59,11 @@ export type CarAvailability = {
   endDate: Date;
   isAvailable: boolean;
   createdAt: Date;
+  car?: {
+    id: number;
+    name: string;
+    type: string;
+  };
 };
 
 export namespace AppTypes {

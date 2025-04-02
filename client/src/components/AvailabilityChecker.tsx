@@ -71,9 +71,11 @@ const AvailabilityChecker: React.FC = () => {
   const [searched, setSearched] = useState(false);
   const [selectedCarType, setSelectedCarType] = useState<string>('');
   const [currency, setCurrency] = useState('USD');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   
   // Fetch all cars from API
-  const { data: carsResponse, isLoading } = useQuery<ApiResponse>({
+  const { data: carsResponse, isLoading: isCarsLoading } = useQuery<ApiResponse>({
     queryKey: ['/api/cars'],
   });
 
@@ -124,21 +126,27 @@ const AvailabilityChecker: React.FC = () => {
   function checkAvailability(data: AvailabilityFormValues) {
     setSearched(true);
     setSelectedCarType(data.carType);
+    setIsLoading(true);
     
     // Query server for available cars
     fetch(`/api/cars/available?startDate=${data.pickupDate.toISOString()}&endDate=${data.returnDate.toISOString()}&type=${encodeURIComponent(data.carType)}`)
       .then(response => response.json())
       .then(result => {
+        setIsLoading(false);
         if (result.success) {
           setFilteredCars(result.data);
+          setError(null);
         } else {
           setFilteredCars([]);
+          setError(result.message || 'Could not fetch available cars');
           console.error('Error fetching available cars:', result.error);
         }
       })
       .catch(error => {
-        console.error('Error checking availability:', error);
+        setIsLoading(false);
         setFilteredCars([]);
+        setError('Error connecting to server. Please try again.');
+        console.error('Error checking availability:', error);
       });
   }
 
@@ -327,7 +335,44 @@ const AvailabilityChecker: React.FC = () => {
                 </p>
               </div>
               
-              {filteredCars.length > 0 ? (
+              {isLoading ? (
+                <div className="text-center p-10 bg-gray-50 rounded-lg">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 text-blue-600 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Checking Availability</h3>
+                  <p className="text-gray-600 mb-6">We're searching for {selectedCarType} cars for your selected dates...</p>
+                </div>
+              ) : error ? (
+                <div className="text-center p-10 bg-gray-50 rounded-lg">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 text-orange-600 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Availability Check Error</h3>
+                  <p className="text-gray-600 mb-6">{error}</p>
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setError(null);
+                      form.handleSubmit(checkAvailability)();
+                    }}
+                    className="border-black text-black hover:bg-black hover:text-white mr-2"
+                  >
+                    Try Again
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => form.reset()}
+                    className="border-black text-black hover:bg-black hover:text-white"
+                  >
+                    Reset Form
+                  </Button>
+                </div>
+              ) : filteredCars.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredCars.map((car) => {
                     // Calculate rental price for the selected period
