@@ -865,19 +865,24 @@ export class DatabaseStorage implements IStorage {
   
   async getAvailableCars(startDate: Date, endDate: Date, carType?: string): Promise<Car[]> {
     try {
+      console.log('Checking for available cars:', { startDate, endDate, carType });
+      
       // Construct the query for getting available cars
+      // First we get all cars that match the type
+      // Then we exclude those that have conflicting unavailable periods
       let query = `
         SELECT c.*
         FROM cars c
-        WHERE 
-          -- Either the car has no availability entries for the date range
-          NOT EXISTS (
-            SELECT 1 FROM car_availabilities ca 
-            WHERE ca.car_id = c.id 
-            AND ca.start_date <= $2 
-            AND ca.end_date >= $1 
-            AND ca.is_available = false
+        WHERE c.available = true
+        AND NOT EXISTS (
+          SELECT 1 FROM car_availabilities ca 
+          WHERE ca.car_id = c.id 
+          AND ca.is_available = false
+          AND (
+            -- Check for any overlapping unavailable period
+            (ca.start_date <= $2 AND ca.end_date >= $1)
           )
+        )
       `;
       
       // Add car type filter if specified
@@ -887,6 +892,9 @@ export class DatabaseStorage implements IStorage {
         query += ` AND c.type = $3`;
         queryParams.push(carType);
       }
+      
+      console.log('Query:', query);
+      console.log('Params:', queryParams);
       
       // Execute the query
       const result = await prisma.$queryRawUnsafe(query, ...queryParams);

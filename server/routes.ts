@@ -387,10 +387,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all car availabilities
   app.get("/api/cars/availability", isAdmin, async (req, res) => {
     try {
+      console.log("Fetching all car availabilities");
+      
       // Try to get car availabilities, but return empty array if database issues occur
-      let availabilities: Array<any> = [];
+      let availabilities: any[] = [];
       try {
         availabilities = await storage.getAllCarAvailabilities();
+        console.log(`Retrieved ${availabilities.length} car availabilities`);
       } catch (dbError) {
         console.error("Database error fetching car availabilities:", dbError);
         // Return empty array instead of error when table doesn't exist
@@ -414,11 +417,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/cars/:id/availability", isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      console.log(`Fetching availabilities for car ID: ${id}`);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid car ID"
+        });
+      }
+      
+      // Check if car exists
+      const car = await storage.getCarById(id);
+      if (!car) {
+        return res.status(404).json({
+          success: false,
+          message: `Car with ID ${id} not found`
+        });
+      }
       
       // Try to get car availabilities, but return empty array if database issues occur
-      let availabilities: Array<any> = [];
+      let availabilities: any[] = [];
       try {
         availabilities = await storage.getCarAvailabilities(id);
+        console.log(`Retrieved ${availabilities.length} availabilities for car ID: ${id}`);
       } catch (dbError) {
         console.error("Database error fetching car availabilities for car ID:", id, dbError);
         // Return empty array instead of error when table doesn't exist
@@ -539,12 +560,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      console.log('Getting available cars for:', { startDate, endDate, type });
+      
       try {
+        const parsedStartDate = new Date(startDate as string);
+        const parsedEndDate = new Date(endDate as string);
+        
+        // Validate dates
+        if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid date format"
+          });
+        }
+        
         const availableCars = await storage.getAvailableCars(
-          new Date(startDate as string),
-          new Date(endDate as string),
+          parsedStartDate,
+          parsedEndDate,
           type as string
         );
+        
+        console.log(`Found ${availableCars.length} available cars`);
         
         res.status(200).json({
           success: true,
@@ -555,7 +591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // If it's a database error related to the car_availabilities table,
         // fallback to returning all cars of the requested type
-        let fallbackCars = [];
+        let fallbackCars: any[] = [];
         try {
           if (type && type !== 'All Cars') {
             fallbackCars = await storage.getCarsByType(type as string);
