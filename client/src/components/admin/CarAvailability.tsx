@@ -95,9 +95,9 @@ const CarAvailabilityManager: React.FC = () => {
   // Extract cars from response and ensure it's an array
   const cars = Array.isArray(carsResponse?.data) ? carsResponse?.data : [];
 
-  // Get all car availabilities
+  // Get all car availabilities from our new endpoint to avoid route conflicts
   const { data: availabilitiesResponse, isLoading, isError: availabilitiesError } = useQuery<ApiResponse>({
-    queryKey: ['/api/cars/availability'],
+    queryKey: ['/api/car-availabilities'],
     retry: (failureCount, error: any) => {
       // Retry network errors but not server errors
       return failureCount < 2 && error?.status !== 500;
@@ -136,7 +136,7 @@ const CarAvailabilityManager: React.FC = () => {
       });
       setIsAddDialogOpen(false);
       form.reset();
-      queryClient.invalidateQueries({ queryKey: ['/api/cars/availability'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/car-availabilities'] });
     },
     onError: (error) => {
       toast({
@@ -169,7 +169,7 @@ const CarAvailabilityManager: React.FC = () => {
       setIsEditDialogOpen(false);
       setSelectedAvailability(null);
       editForm.reset();
-      queryClient.invalidateQueries({ queryKey: ['/api/cars/availability'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/car-availabilities'] });
     },
     onError: (error) => {
       toast({
@@ -190,7 +190,7 @@ const CarAvailabilityManager: React.FC = () => {
         title: 'Success',
         description: 'Car availability deleted successfully',
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/cars/availability'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/car-availabilities'] });
     },
     onError: (error) => {
       toast({
@@ -433,7 +433,7 @@ const CarAvailabilityManager: React.FC = () => {
               <Button 
                 className="mt-4" 
                 variant="outline" 
-                onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/cars/availability'] })}
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/car-availabilities'] })}
               >
                 Try Again
               </Button>

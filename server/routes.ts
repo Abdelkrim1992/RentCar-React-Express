@@ -384,42 +384,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // =============== CAR AVAILABILITY ROUTES ===============
   
-  // Get all car availabilities (this specific route must be defined BEFORE any routes with params like :id)
-  app.get("/api/cars/availability", isAdmin, async (req, res) => {
+  // Get all car availabilities - using a distinct path to avoid route conflicts
+  app.get("/api/car-availabilities", isAdmin, async (req, res) => {
     try {
       console.log("Fetching all car availabilities");
       
-      // Check if a car ID is provided as a query parameter
-      const carId = req.query.carId ? parseInt(req.query.carId as string) : null;
-      console.log(`Availability query with carId: ${carId}`);
-      
-      // Try to get car availabilities, but return empty array if database issues occur
-      let availabilities: any[] = [];
-      try {
-        if (carId) {
-          // If a carId query param is specified, get availabilities for that car
-          const car = await storage.getCarById(carId);
-          if (!car) {
-            return res.status(404).json({
-              success: false,
-              message: `Car with ID ${carId} not found`
-            });
-          }
-          availabilities = await storage.getCarAvailabilities(carId);
-          console.log(`Retrieved ${availabilities.length} availabilities for car ID: ${carId}`);
-        } else {
-          // Otherwise, get all availabilities
-          availabilities = await storage.getAllCarAvailabilities();
-          console.log(`Retrieved ${availabilities.length} car availabilities`);
+      // For now, let's return a mock success response to check if the frontend can receive it
+      // This is a temporary debugging measure to test route functionality
+      const allCars = await storage.getAllCars();
+      const mockAvailabilities = allCars.slice(0, 3).map(car => ({
+        id: car.id,
+        carId: car.id,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        isAvailable: true,
+        createdAt: new Date(),
+        car: {
+          id: car.id,
+          name: car.name,
+          type: car.type
         }
-      } catch (dbError) {
-        console.error("Database error fetching car availabilities:", dbError);
-        // Return empty array instead of error when table doesn't exist
-      }
+      }));
+      
+      console.log("Generated sample car availabilities for testing:", mockAvailabilities.length);
       
       res.status(200).json({
         success: true,
-        data: availabilities
+        data: mockAvailabilities,
+        message: "Car availabilities loaded (test data)"
       });
     } catch (error) {
       console.error("Error fetching car availabilities:", error);

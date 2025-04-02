@@ -726,26 +726,61 @@ export class DatabaseStorage implements IStorage {
   
   async getAllCarAvailabilities(): Promise<CarAvailability[]> {
     try {
-      const result = await prisma.$queryRaw`
-        SELECT ca.*, c.name as car_name, c.type as car_type 
-        FROM car_availabilities ca
-        JOIN cars c ON ca.car_id = c.id
-      `;
-      
-      // Convert the raw result to our CarAvailability type
-      return (Array.isArray(result) ? result : [result]).map(row => ({
-        id: Number(row.id),
-        carId: Number(row.car_id),
-        startDate: new Date(row.start_date),
-        endDate: new Date(row.end_date),
-        isAvailable: Boolean(row.is_available),
-        createdAt: new Date(row.created_at),
-        car: row.car_name ? {
-          id: Number(row.car_id),
-          name: row.car_name,
-          type: row.car_type
-        } : undefined
-      }));
+      // First try to use Prisma's auto-generated methods for better typesafety
+      try {
+        const availabilities = await prisma.carAvailabilities.findMany({
+          include: {
+            car: {
+              select: {
+                id: true,
+                name: true,
+                type: true
+              }
+            }
+          }
+        });
+        
+        // Map to our CarAvailability type
+        return availabilities.map(avail => ({
+          id: avail.id,
+          carId: avail.carId,
+          startDate: avail.startDate,
+          endDate: avail.endDate,
+          isAvailable: avail.isAvailable,
+          createdAt: avail.createdAt,
+          car: avail.car ? {
+            id: avail.car.id,
+            name: avail.car.name,
+            type: avail.car.type
+          } : undefined
+        }));
+      } catch (prismaError) {
+        console.log('Prisma findMany failed, falling back to raw query:', prismaError);
+        
+        // Fallback to raw query if the Prisma model isn't working
+        const result = await prisma.$queryRaw`
+          SELECT ca.*, c.id as car_id, c.name as car_name, c.type as car_type 
+          FROM "car_availabilities" ca
+          JOIN "cars" c ON ca."car_id" = c."id"
+        `;
+        
+        console.log('Raw query result:', result);
+        
+        // Convert the raw result to our CarAvailability type
+        return (Array.isArray(result) ? result : [result]).map(row => ({
+          id: Number(row.id),
+          carId: Number(row.car_id),
+          startDate: new Date(row.start_date),
+          endDate: new Date(row.end_date),
+          isAvailable: Boolean(row.is_available),
+          createdAt: new Date(row.created_at),
+          car: row.car_name ? {
+            id: Number(row.car_id),
+            name: row.car_name,
+            type: row.car_type
+          } : undefined
+        }));
+      }
     } catch (error) {
       console.error('Error getting all car availabilities:', error);
       return [];
