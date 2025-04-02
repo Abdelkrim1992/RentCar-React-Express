@@ -493,8 +493,8 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// For now, use the database storage
-// Check if we should use database or memory storage
-const useDatabase = !!process.env.DATABASE_URL;
+// For now, let's force using the memory storage until we fix the database connection issues
+// We'll manually switch to database storage once the connection is verified
+const useDatabase = false; // Temporarily force memory storage
 
 export const storage = useDatabase ? new DatabaseStorage() : new MemStorage();
