@@ -1,6 +1,15 @@
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+// Explicitly set the database URL
+const databaseUrl = 'postgresql://car-rent_owner:npg_o2VYey1tzUXS@ep-billowing-art-ab1nuveo-pooler.eu-west-2.aws.neon.tech/car-rent?sslmode=require';
+
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: databaseUrl
+    }
+  }
+});
 
 async function checkConnection() {
   try {

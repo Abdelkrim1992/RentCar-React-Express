@@ -257,13 +257,16 @@ export class MemStorage implements IStorage {
 // Database storage implementation with Prisma ORM
 const PostgresSessionStore = connectPg(session);
 
+// Explicit database URL
+const databaseUrl = 'postgresql://car-rent_owner:npg_o2VYey1tzUXS@ep-billowing-art-ab1nuveo-pooler.eu-west-2.aws.neon.tech/car-rent?sslmode=require';
+
 export class DatabaseStorage implements IStorage {
   sessionStore: any;
   
   constructor() {
     // Create PostgreSQL session store
     this.sessionStore = new PostgresSessionStore({
-      conString: process.env.DATABASE_URL,
+      conString: databaseUrl,
       createTableIfMissing: true,
     });
   }
@@ -493,8 +496,5 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// For now, let's force using the memory storage until we fix the database connection issues
-// We'll manually switch to database storage once the connection is verified
-const useDatabase = false; // Temporarily force memory storage
-
-export const storage = useDatabase ? new DatabaseStorage() : new MemStorage();
+// Always use database storage with our explicit URL
+export const storage = new DatabaseStorage();
