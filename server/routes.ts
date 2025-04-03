@@ -584,15 +584,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
+        const carType = type && type !== 'All Cars' ? type as string : undefined;
+        
         const availableCars = await storage.getAvailableCars(
           parsedStartDate,
           parsedEndDate,
-          type as string
+          carType
         );
         
         console.log(`Found ${availableCars.length} available cars`);
         
-        res.status(200).json({
+        return res.status(200).json({
           success: true,
           data: availableCars
         });
@@ -609,7 +611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             fallbackCars = await storage.getAllCars();
           }
           
-          res.status(200).json({
+          return res.status(200).json({
             success: true,
             data: fallbackCars,
             message: "Availability system is temporarily unavailable. Showing all cars."
@@ -621,7 +623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("Error fetching available cars:", error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: "Failed to fetch available cars. Please try again later.",
         error: error instanceof Error ? error.message : "Unknown error"

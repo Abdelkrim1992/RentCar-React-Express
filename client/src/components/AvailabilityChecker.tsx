@@ -127,15 +127,29 @@ const AvailabilityChecker: React.FC = () => {
     setSearched(true);
     setSelectedCarType(data.carType);
     setIsLoading(true);
+    setError(null);
+    
+    console.log('Checking availability with:', data);
     
     // Query server for available cars
     fetch(`/api/cars/available?startDate=${data.pickupDate.toISOString()}&endDate=${data.returnDate.toISOString()}&type=${encodeURIComponent(data.carType)}`)
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Server responded with status ${response.status}`);
+        }
+        return response.json();
+      })
       .then(result => {
         setIsLoading(false);
         if (result.success) {
-          setFilteredCars(result.data);
-          setError(null);
+          console.log('Available cars:', result.data);
+          setFilteredCars(result.data || []);
+          
+          if (result.data && result.data.length === 0) {
+            setError(`No ${data.carType} cars available for the selected dates. Please try different dates or car type.`);
+          } else {
+            setError(null);
+          }
         } else {
           setFilteredCars([]);
           setError(result.message || 'Could not fetch available cars');

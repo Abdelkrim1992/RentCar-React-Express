@@ -902,31 +902,39 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log('Checking for available cars:', { startDate, endDate, carType });
       
-      // Construct the query for getting available cars
-      // First we get all cars that match the type
-      // Then we exclude those that have conflicting unavailable periods
+      // Start with a basic query to get all cars
       let query = `
         SELECT c.*
-        FROM cars c
-        WHERE c.available = true
+        FROM "cars" c
+        WHERE 1=1
+      `;
+      
+      // Parameters for the query
+      const queryParams: any[] = [];
+      let paramCounter = 1;
+      
+      // Add car type filter if specified
+      if (carType && carType !== 'All Cars') {
+        query += ` AND c.type = $${paramCounter}`;
+        queryParams.push(carType);
+        paramCounter++;
+      }
+      
+      // Exclude cars that have unavailable periods overlapping with the requested dates
+      query += `
         AND NOT EXISTS (
-          SELECT 1 FROM car_availabilities ca 
+          SELECT 1 FROM "car_availabilities" ca 
           WHERE ca.car_id = c.id 
           AND ca.is_available = false
           AND (
             -- Check for any overlapping unavailable period
-            (ca.start_date <= $2 AND ca.end_date >= $1)
+            (ca.start_date <= $${paramCounter} AND ca.end_date >= $${paramCounter+1})
           )
         )
       `;
       
-      // Add car type filter if specified
-      const queryParams: any[] = [startDate, endDate];
-      
-      if (carType && carType !== 'All Cars') {
-        query += ` AND c.type = $3`;
-        queryParams.push(carType);
-      }
+      // Add the date parameters
+      queryParams.push(endDate, startDate);
       
       console.log('Query:', query);
       console.log('Params:', queryParams);
@@ -935,7 +943,7 @@ export class DatabaseStorage implements IStorage {
       const result = await prisma.$queryRawUnsafe(query, ...queryParams);
       
       // Convert the raw result to our Car type
-      return (Array.isArray(result) ? result : [result]).map(row => ({
+      return (Array.isArray(result) ? result : []).map((row: any) => ({
         id: Number(row.id),
         name: row.name,
         type: row.type,
@@ -947,12 +955,12 @@ export class DatabaseStorage implements IStorage {
         special: row.special,
         specialColor: row.special_color,
         description: row.description,
-        features: row.features || [],
+        features: Array.isArray(row.features) ? row.features : [],
         createdAt: new Date(row.created_at)
       }));
     } catch (error) {
       console.error('Error getting available cars:', error);
-      return [];
+      throw error; // Allow the error to be handled by the caller
     }
   }
 
