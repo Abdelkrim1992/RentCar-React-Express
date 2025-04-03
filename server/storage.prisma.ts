@@ -972,7 +972,8 @@ export class DatabaseStorage implements IStorage {
         AND ca.end_date >= $2
       `;
       
-      const params = [endDate, startDate];
+      // We need to ensure we're using Date objects as parameters
+      const params: (Date | string)[] = [endDate, startDate];
       
       // Add car type filter if specified
       let finalQuery = query;
@@ -988,8 +989,8 @@ export class DatabaseStorage implements IStorage {
       console.log('Executing query:', finalQuery);
       console.log('With params:', params);
       
-      const results = await prisma.$queryRawUnsafe(finalQuery, ...params);
-      console.log(`Found ${results.length} available cars`);
+      const results = await prisma.$queryRawUnsafe<any[]>(finalQuery, ...params);
+      console.log(`Found ${results ? results.length : 0} available cars`);
       
       return this.mapCarResults(results);
     } catch (error) {
@@ -1174,8 +1175,9 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Helper to map database results to Car objects
-  private mapCarResults(result: any): Car[] {
-    return (Array.isArray(result) ? result : result ? [result] : []).map((row: any) => ({
+  private mapCarResults(result: any[] | any | null): Car[] {
+    if (!result) return [];
+    return (Array.isArray(result) ? result : [result]).map((row: any) => ({
       id: Number(row.id),
       name: row.name,
       type: row.type,

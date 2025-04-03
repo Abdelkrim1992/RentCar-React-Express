@@ -113,7 +113,10 @@ const AvailabilityChecker: React.FC = () => {
   });
 
   // Calculate number of days between pickup and return dates
-  const daysBetween = (date1: Date, date2: Date) => {
+  const daysBetween = (date1: Date | undefined, date2: Date | undefined) => {
+    // If either date is undefined, return 1 day as default
+    if (!date1 || !date2) return 1;
+    
     const diffTime = Math.abs(date2.getTime() - date1.getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
