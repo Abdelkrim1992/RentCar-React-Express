@@ -789,68 +789,36 @@ export class DatabaseStorage implements IStorage {
   
   async updateCarAvailability(id: number, availability: AppTypes.CarAvailabilityUpdateInput): Promise<CarAvailability | undefined> {
     try {
-      // Simple update query with explicit parameters
-      let query = 'UPDATE car_availabilities SET ';
-      const updateParts = [];
-      const queryParams: any[] = [];
+      console.log('Updating car availability:', { id, availability });
       
-      if (availability.carId !== undefined) {
-        updateParts.push('car_id = ?');
-        queryParams.push(availability.carId);
+      // First, check if the record exists
+      const existingRecord = await prisma.$queryRaw`
+        SELECT ca.*, c.name as car_name, c.type as car_type 
+        FROM car_availabilities ca
+        JOIN cars c ON ca.car_id = c.id
+        WHERE ca.id = ${id}
+      `;
+      
+      if (!existingRecord || (Array.isArray(existingRecord) && existingRecord.length === 0)) {
+        console.log('Car availability record not found');
+        return undefined;
       }
       
-      if (availability.startDate !== undefined) {
-        updateParts.push('start_date = ?');
-        queryParams.push(availability.startDate);
-      }
+      // Get the existing data to use for fields that aren't being updated
+      const existing = Array.isArray(existingRecord) ? existingRecord[0] : existingRecord;
       
-      if (availability.endDate !== undefined) {
-        updateParts.push('end_date = ?');
-        queryParams.push(availability.endDate);
-      }
+      // Use direct Prisma query with template strings for more reliable updating
+      const result = await prisma.$executeRaw`
+        UPDATE car_availabilities 
+        SET 
+          car_id = ${availability.carId !== undefined ? availability.carId : existing.car_id},
+          start_date = ${availability.startDate !== undefined ? availability.startDate : existing.start_date},
+          end_date = ${availability.endDate !== undefined ? availability.endDate : existing.end_date},
+          is_available = ${availability.isAvailable !== undefined ? availability.isAvailable : existing.is_available}
+        WHERE id = ${id}
+      `;
       
-      if (availability.isAvailable !== undefined) {
-        updateParts.push('is_available = ?');
-        queryParams.push(availability.isAvailable);
-      }
-      
-      if (updateParts.length === 0) {
-        // Nothing to update, just return the current value
-        const current = await prisma.$queryRaw`
-          SELECT ca.*, c.name as car_name, c.type as car_type 
-          FROM car_availabilities ca
-          JOIN cars c ON ca.car_id = c.id
-          WHERE ca.id = ${id}
-        `;
-        
-        if (!current || (Array.isArray(current) && current.length === 0)) {
-          return undefined;
-        }
-        
-        const row = Array.isArray(current) ? current[0] : current;
-        
-        return {
-          id: Number(row.id),
-          carId: Number(row.car_id),
-          startDate: new Date(row.start_date),
-          endDate: new Date(row.end_date),
-          isAvailable: Boolean(row.is_available),
-          createdAt: new Date(row.created_at),
-          car: row.car_name ? {
-            id: Number(row.car_id),
-            name: row.car_name,
-            type: row.car_type
-          } : undefined
-        };
-      }
-      
-      // Complete the query
-      query += updateParts.join(', ');
-      query += ' WHERE id = ?';
-      queryParams.push(id);
-      
-      // Execute the update
-      await prisma.$executeRawUnsafe(query, ...queryParams);
+      console.log('Update result:', result);
       
       // Fetch the updated record
       const updated = await prisma.$queryRaw`
@@ -861,10 +829,12 @@ export class DatabaseStorage implements IStorage {
       `;
       
       if (!updated || (Array.isArray(updated) && updated.length === 0)) {
+        console.log('Failed to retrieve updated record');
         return undefined;
       }
       
       const row = Array.isArray(updated) ? updated[0] : updated;
+      console.log('Updated record:', row);
       
       return {
         id: Number(row.id),
@@ -900,10 +870,14 @@ export class DatabaseStorage implements IStorage {
   
   async getAvailableCars(startDate: Date, endDate: Date, carType?: string): Promise<Car[]> {
     try {
-      console.log('Checking for available cars:', { startDate, endDate, carType });
+      console.log('Checking for available cars:', { 
+        startDate: startDate.toISOString(), 
+        endDate: endDate.toISOString(), 
+        carType 
+      });
       
-      // Start with a basic query to get all cars
-      let query = `
+      // First get all cars that match the basic criteria
+      let carsQuery = `
         SELECT c.*
         FROM "cars" c
         WHERE 1=1
@@ -915,35 +889,56 @@ export class DatabaseStorage implements IStorage {
       
       // Add car type filter if specified
       if (carType && carType !== 'All Cars') {
-        query += ` AND c.type = $${paramCounter}`;
+        carsQuery += ` AND c.type = $${paramCounter}`;
         queryParams.push(carType);
         paramCounter++;
       }
       
-      // Exclude cars that have unavailable periods overlapping with the requested dates
-      query += `
-        AND NOT EXISTS (
-          SELECT 1 FROM "car_availabilities" ca 
-          WHERE ca.car_id = c.id 
-          AND ca.is_available = false
-          AND (
-            -- Check for any overlapping unavailable period
-            (ca.start_date <= $${paramCounter} AND ca.end_date >= $${paramCounter+1})
+      // For checking availability, we need to:
+      // 1. Include cars that have no availability records (these are always available)
+      // 2. Include cars that have availability records marking them as available for this period
+      // 3. Exclude cars that have any availability records marking them as unavailable for this period
+      carsQuery += `
+        AND (
+          -- Case 1: Cars with no availability records are considered available
+          NOT EXISTS (
+            SELECT 1 FROM "car_availabilities" ca 
+            WHERE ca.car_id = c.id
+          )
+          OR
+          -- Case 2: Cars that are explicitly marked as available for this period
+          EXISTS (
+            SELECT 1 FROM "car_availabilities" ca 
+            WHERE ca.car_id = c.id 
+            AND ca.is_available = true
+            AND (
+              (ca.start_date <= $${paramCounter} AND ca.end_date >= $${paramCounter+1})
+            )
+          )
+          -- Case 3: We exclude cars with any unavailable periods that overlap with requested dates
+          AND NOT EXISTS (
+            SELECT 1 FROM "car_availabilities" ca 
+            WHERE ca.car_id = c.id 
+            AND ca.is_available = false
+            AND (
+              (ca.start_date <= $${paramCounter+2} AND ca.end_date >= $${paramCounter+3})
+            )
           )
         )
       `;
       
-      // Add the date parameters
-      queryParams.push(endDate, startDate);
+      // Add the date parameters (they're used twice in the query)
+      queryParams.push(endDate, startDate, endDate, startDate);
       
-      console.log('Query:', query);
+      console.log('Query:', carsQuery);
       console.log('Params:', queryParams);
       
       // Execute the query
-      const result = await prisma.$queryRawUnsafe(query, ...queryParams);
+      const result = await prisma.$queryRawUnsafe(carsQuery, ...queryParams);
+      console.log(`Query returned ${result ? (Array.isArray(result) ? result.length : 1) : 0} cars`);
       
       // Convert the raw result to our Car type
-      return (Array.isArray(result) ? result : []).map((row: any) => ({
+      return (Array.isArray(result) ? result : result ? [result] : []).map((row: any) => ({
         id: Number(row.id),
         name: row.name,
         type: row.type,
