@@ -57,6 +57,7 @@ const carAvailabilityFormSchema = z.object({
   endDate: z.date({ required_error: 'Please select an end date' }),
   isAvailable: z.boolean().default(true),
   carType: z.string().optional(),
+  city: z.string().optional(),
 });
 
 type CarAvailabilityFormValues = z.infer<typeof carAvailabilityFormSchema>;
@@ -74,6 +75,7 @@ interface CarAvailability {
   endDate: string;
   isAvailable: boolean;
   carType?: string;
+  city?: string;
   createdAt: string;
   car?: {
     id: number;
@@ -135,7 +137,8 @@ const CarAvailabilityManager: React.FC = () => {
       // Include the car type in the data sent to the API
       return apiRequest('POST', '/api/cars/availability', {
         ...data,
-        carType: selectedCar?.type
+        carType: selectedCar?.type,
+        city: data.city || '' // Ensure city is included
       });
     },
     onSuccess: () => {
@@ -172,6 +175,7 @@ const CarAvailabilityManager: React.FC = () => {
           endDate: data.endDate,
           isAvailable: data.isAvailable,
           carType: selectedCar?.type,
+          city: data.city || '',
         }
       );
     },
@@ -262,6 +266,7 @@ const CarAvailabilityManager: React.FC = () => {
       startDate,
       endDate,
       isAvailable: availability.isAvailable,
+      city: availability.city || '',
     });
     
     setIsEditDialogOpen(true);
@@ -400,6 +405,35 @@ const CarAvailabilityManager: React.FC = () => {
                 
                 <FormField
                   control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a city" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Rabat">Rabat</SelectItem>
+                          <SelectItem value="Casablanca">Casablanca</SelectItem>
+                          <SelectItem value="Agadir">Agadir</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Select the city where the car will be available
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="isAvailable"
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
@@ -464,6 +498,7 @@ const CarAvailabilityManager: React.FC = () => {
                   <TableHead>Car</TableHead>
                   <TableHead>Start Date</TableHead>
                   <TableHead>End Date</TableHead>
+                  <TableHead>City</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -479,6 +514,9 @@ const CarAvailabilityManager: React.FC = () => {
                     </TableCell>
                     <TableCell>{format(new Date(availability.startDate), 'PP')}</TableCell>
                     <TableCell>{format(new Date(availability.endDate), 'PP')}</TableCell>
+                    <TableCell>
+                      {availability.city || 'Not specified'}
+                    </TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         availability.isAvailable
@@ -638,6 +676,35 @@ const CarAvailabilityManager: React.FC = () => {
                   )}
                 />
               </div>
+              
+              <FormField
+                control={editForm.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>City</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a city" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Rabat">Rabat</SelectItem>
+                        <SelectItem value="Casablanca">Casablanca</SelectItem>
+                        <SelectItem value="Agadir">Agadir</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Select the city where the car will be available
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
               <FormField
                 control={editForm.control}

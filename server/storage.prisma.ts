@@ -954,12 +954,13 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
-  async getAvailableCars(startDate: Date, endDate: Date, carType?: string): Promise<Car[]> {
+  async getAvailableCars(startDate: Date, endDate: Date, carType?: string, city?: string): Promise<Car[]> {
     try {
       console.log('Getting cars directly from car_availabilities table:', { 
         startDate: startDate.toISOString(), 
         endDate: endDate.toISOString(), 
-        carType 
+        carType,
+        city
       });
       
       // Query to get cars from car_availabilities table that are available during the requested period
@@ -975,10 +976,18 @@ export class DatabaseStorage implements IStorage {
       // We need to ensure we're using Date objects as parameters
       const params: (Date | string)[] = [endDate, startDate];
       
-      // Add car type filter if specified
+      let paramCount = 2;
+      
+      // Add city filter if specified
       let finalQuery = query;
+      if (city && city !== 'all') {
+        finalQuery += ` AND ca.city = $${++paramCount}`;
+        params.push(city);
+      }
+      
+      // Add car type filter if specified
       if (carType && carType !== 'All Cars') {
-        finalQuery += ` AND c.type = $3`;
+        finalQuery += ` AND c.type = $${++paramCount}`;
         params.push(carType);
       }
       
@@ -1000,12 +1009,12 @@ export class DatabaseStorage implements IStorage {
       try {
         console.log('Falling back to previous car availability implementation');
         try {
-          return await this.getAvailableCarsWithCarType(startDate, endDate, carType);
+          return await this.getAvailableCarsWithCarType(startDate, endDate, carType, city);
         } catch (err: any) {
           // If the query fails because car_type column doesn't exist, fall back to simpler query
           if (err?.meta?.message?.includes('car_type does not exist')) {
             console.log('Falling back to query without car_type filter in car_availabilities table');
-            return await this.getAvailableCarsWithoutCarTypeColumn(startDate, endDate, carType);
+            return await this.getAvailableCarsWithoutCarTypeColumn(startDate, endDate, carType, city);
           }
           throw err; // Re-throw if it's a different error
         }
@@ -1017,7 +1026,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Version with car_type column in car_availabilities table
-  private async getAvailableCarsWithCarType(startDate: Date, endDate: Date, carType?: string): Promise<Car[]> {
+  private async getAvailableCarsWithCarType(startDate: Date, endDate: Date, carType?: string, city?: string): Promise<Car[]> {
     // First get all cars that match the basic criteria
     let carsQuery = `
       SELECT c.*
@@ -1058,16 +1067,26 @@ export class DatabaseStorage implements IStorage {
           )
     `;
     
+    // Add parameters for the date range
+    queryParams.push(endDate, startDate);
+    paramCounter += 2;
+    
+    // Add city filter to availability records if specified
+    if (city) {
+      carsQuery += `
+          AND ca.city = $${paramCounter}
+      `;
+      queryParams.push(city);
+      paramCounter++;
+    }
+    
     // Add car type filter to availability records if specified
     if (carType && carType !== 'All Cars') {
       carsQuery += `
-          AND (ca.car_type IS NULL OR ca.car_type = $${paramCounter+2})
+          AND (ca.car_type IS NULL OR ca.car_type = $${paramCounter})
       `;
-      queryParams.push(endDate, startDate, carType);
-      paramCounter += 3;
-    } else {
-      queryParams.push(endDate, startDate);
-      paramCounter += 2;
+      queryParams.push(carType);
+      paramCounter++;
     }
     
     carsQuery += `
@@ -1082,14 +1101,25 @@ export class DatabaseStorage implements IStorage {
           )
     `;
     
+    // Add parameters for the date range
+    queryParams.push(endDate, startDate);
+    paramCounter += 2;
+    
+    // Add city filter to unavailability check if specified
+    if (city) {
+      carsQuery += `
+          AND ca.city = $${paramCounter}
+      `;
+      queryParams.push(city);
+      paramCounter++;
+    }
+    
     // Add car type filter to unavailable check if specified  
     if (carType && carType !== 'All Cars') {
       carsQuery += `
-          AND (ca.car_type IS NULL OR ca.car_type = $${paramCounter+2})
+          AND (ca.car_type IS NULL OR ca.car_type = $${paramCounter})
       `;
-      queryParams.push(endDate, startDate, carType);
-    } else {
-      queryParams.push(endDate, startDate);
+      queryParams.push(carType);
     }
     
     carsQuery += `
@@ -1109,7 +1139,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Version without car_type column in car_availabilities table
-  private async getAvailableCarsWithoutCarTypeColumn(startDate: Date, endDate: Date, carType?: string): Promise<Car[]> {
+  private async getAvailableCarsWithoutCarTypeColumn(startDate: Date, endDate: Date, carType?: string, city?: string): Promise<Car[]> {
     // First get all cars that match the basic criteria
     let carsQuery = `
       SELECT c.*
@@ -1127,6 +1157,8 @@ export class DatabaseStorage implements IStorage {
       queryParams.push(carType);
       paramCounter++;
     }
+    
+    // We don't filter by city in the car table - that filter is applied to the availability records below
     
     // For checking availability, we need to:
     // 1. Include cars that have no availability records (these are always available)
@@ -1148,6 +1180,7 @@ export class DatabaseStorage implements IStorage {
           AND (
             (ca.start_date <= $${paramCounter} AND ca.end_date >= $${paramCounter+1})
           )
+          ${city ? `AND ca.city = $${paramCounter+2}` : ''}
         )
         -- Case 3: We exclude cars with any unavailable periods that overlap with requested dates
         AND NOT EXISTS (
@@ -1157,11 +1190,17 @@ export class DatabaseStorage implements IStorage {
           AND (
             (ca.start_date <= $${paramCounter+2} AND ca.end_date >= $${paramCounter+3})
           )
+          ${city ? `AND ca.city = $${paramCounter+4}` : ''}
         )
       )
     `;
     
     queryParams.push(endDate, startDate, endDate, startDate);
+    
+    // Add city parameter if provided
+    if (city) {
+      queryParams.push(city, city);
+    }
     
     console.log('Query without car_type:', carsQuery);
     console.log('Params:', queryParams);

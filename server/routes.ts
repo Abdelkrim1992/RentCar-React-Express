@@ -240,7 +240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get available cars for date range (must come before the :id route)
   app.get("/api/cars/available", async (req, res) => {
     try {
-      const { startDate, endDate, type } = req.query;
+      const { startDate, endDate, type, city } = req.query;
       
       if (!startDate || !endDate) {
         return res.status(400).json({
@@ -249,7 +249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      console.log('Getting available cars for:', { startDate, endDate, type });
+      console.log('Getting available cars for:', { startDate, endDate, type, city });
       
       try {
         const parsedStartDate = new Date(startDate as string);
@@ -264,11 +264,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         const carType = type && type !== 'All Cars' ? type as string : undefined;
+        const cityFilter = city && city !== 'all' ? city as string : undefined;
         
         const availableCars = await storage.getAvailableCars(
           parsedStartDate,
           parsedEndDate,
-          carType
+          carType,
+          cityFilter
         );
         
         console.log(`Found ${availableCars.length} available cars`);

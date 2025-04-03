@@ -42,7 +42,7 @@ export interface IStorage {
   getAllCarAvailabilities(): Promise<CarAvailability[]>;
   updateCarAvailability(id: number, availability: Partial<InsertCarAvailability>): Promise<CarAvailability | undefined>;
   deleteCarAvailability(id: number): Promise<boolean>;
-  getAvailableCars(startDate: Date, endDate: Date, carType?: string): Promise<Car[]>;
+  getAvailableCars(startDate: Date, endDate: Date, carType?: string, city?: string): Promise<Car[]>;
   
   // User preferences operations
   getUserPreferences(userId: number): Promise<UserPreferences | undefined>;

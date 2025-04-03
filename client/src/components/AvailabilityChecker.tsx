@@ -54,6 +54,7 @@ const availabilityFormSchema = z.object({
   returnDate: z.date({
     required_error: "Return date is required",
   }),
+  city: z.string().optional(),
 }).refine(data => {
   return data.returnDate > data.pickupDate;
 }, {
@@ -109,6 +110,7 @@ const AvailabilityChecker: React.FC = () => {
     defaultValues: {
       pickupDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
       returnDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
+      city: 'all',
     },
   });
 
@@ -129,8 +131,9 @@ const AvailabilityChecker: React.FC = () => {
     
     console.log('Checking availability with:', data);
     
-    // Query server for available cars
-    fetch(`/api/cars/available?startDate=${data.pickupDate.toISOString()}&endDate=${data.returnDate.toISOString()}`)
+    // Query server for available cars with optional city filter
+    const cityParam = data.city && data.city !== 'all' ? `&city=${encodeURIComponent(data.city)}` : '';
+    fetch(`/api/cars/available?startDate=${data.pickupDate.toISOString()}&endDate=${data.returnDate.toISOString()}${cityParam}`)
       .then(response => {
         if (!response.ok) {
           throw new Error(`Server responded with status ${response.status}`);
@@ -277,8 +280,33 @@ const AvailabilityChecker: React.FC = () => {
                         )}
                       />
                       
-                      {/* Empty space for third grid column on large screens */}
-                      <div className="hidden md:block"></div>
+                      {/* City Selection */}
+                      <FormField
+                        control={form.control}
+                        name="city"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>City</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select a city (optional)" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="all">All Cities</SelectItem>
+                                <SelectItem value="Rabat">Rabat</SelectItem>
+                                <SelectItem value="Casablanca">Casablanca</SelectItem>
+                                <SelectItem value="Agadir">Agadir</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
                     
                     <div className="flex justify-end">
