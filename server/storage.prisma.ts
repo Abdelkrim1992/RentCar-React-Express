@@ -832,9 +832,9 @@ export class DatabaseStorage implements IStorage {
   
   async updateCarAvailability(id: number, availability: AppTypes.CarAvailabilityUpdateInput): Promise<CarAvailability | undefined> {
     try {
-      console.log('Updating car availability:', { id, availability });
+      console.log("Updating car availability:", { id, availability });
       
-      // First, check if the record exists
+      // First check if the record exists
       const existingRecord = await prisma.$queryRaw`
         SELECT ca.*, c.name as car_name, c.type as car_type 
         FROM car_availabilities ca
@@ -843,7 +843,7 @@ export class DatabaseStorage implements IStorage {
       `;
       
       if (!existingRecord || (Array.isArray(existingRecord) && existingRecord.length === 0)) {
-        console.log('Car availability record not found');
+        console.log(`Car availability with ID ${id} not found`);
         return undefined;
       }
       
@@ -865,21 +865,59 @@ export class DatabaseStorage implements IStorage {
           console.error('Error fetching car type for update:', err);
         }
       }
-
-      // Use direct Prisma query with template strings for more reliable updating
+      
+      // Try first with car_type column
+      try {
+        await prisma.$executeRaw`
+          UPDATE car_availabilities 
+          SET 
+            car_id = ${availability.carId !== undefined ? availability.carId : existing.car_id},
+            start_date = ${availability.startDate !== undefined ? availability.startDate : existing.start_date},
+            end_date = ${availability.endDate !== undefined ? availability.endDate : existing.end_date},
+            is_available = ${availability.isAvailable !== undefined ? availability.isAvailable : existing.is_available},
+            car_type = ${carType !== undefined ? carType : existing.car_type}
+          WHERE id = ${id}
+        `;
+        console.log('Updated car availability with car_type column');
+      } catch (error) {
+        console.log('Error updating with car_type, trying without car_type column', error);
+        // If car_type column doesn't exist, try without it
+        await prisma.$executeRaw`
+          UPDATE car_availabilities 
+          SET 
+            car_id = ${availability.carId !== undefined ? availability.carId : existing.car_id},
+            start_date = ${availability.startDate !== undefined ? availability.startDate : existing.start_date},
+            end_date = ${availability.endDate !== undefined ? availability.endDate : existing.end_date},
+            is_available = ${availability.isAvailable !== undefined ? availability.isAvailable : existing.is_available}
+          WHERE id = ${id}
+        `;
+        console.log('Updated car availability without car_type column');
+      }
+      
+      // Fetch the updated record
+      return this.fetchUpdatedAvailability(id);
+    } catch (error) {
+      console.error('Error updating car availability:', error);
+      return undefined;
+    }
+  }
+  
+  async deleteCarAvailability(id: number): Promise<boolean> {
+    try {
       const result = await prisma.$executeRaw`
-        UPDATE car_availabilities 
-        SET 
-          car_id = ${availability.carId !== undefined ? availability.carId : existing.car_id},
-          start_date = ${availability.startDate !== undefined ? availability.startDate : existing.start_date},
-          end_date = ${availability.endDate !== undefined ? availability.endDate : existing.end_date},
-          is_available = ${availability.isAvailable !== undefined ? availability.isAvailable : existing.is_available},
-          car_type = ${carType !== undefined ? carType : existing.car_type}
-        WHERE id = ${id}
+        DELETE FROM car_availabilities WHERE id = ${id}
       `;
       
-      console.log('Update result:', result);
-      
+      return result > 0;
+    } catch (error) {
+      console.error('Error deleting car availability:', error);
+      return false;
+    }
+  }
+  
+  // Helper method to fetch updated availability data
+  private async fetchUpdatedAvailability(id: number): Promise<CarAvailability | undefined> {
+    try {
       // Fetch the updated record
       const updated = await prisma.$queryRaw`
         SELECT ca.*, c.name as car_name, c.type as car_type 
@@ -911,21 +949,8 @@ export class DatabaseStorage implements IStorage {
         } : undefined
       };
     } catch (error) {
-      console.error('Error updating car availability:', error);
+      console.error('Error fetching updated availability:', error);
       return undefined;
-    }
-  }
-  
-  async deleteCarAvailability(id: number): Promise<boolean> {
-    try {
-      const result = await prisma.$executeRaw`
-        DELETE FROM car_availabilities WHERE id = ${id}
-      `;
-      
-      return result > 0;
-    } catch (error) {
-      console.error('Error deleting car availability:', error);
-      return false;
     }
   }
   
