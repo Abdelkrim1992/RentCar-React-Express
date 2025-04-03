@@ -75,7 +75,7 @@ interface CarAvailability {
   endDate: string;
   isAvailable: boolean;
   carType?: string;
-  city?: string;
+  city: string;
   createdAt: string;
   car?: {
     id: number;
