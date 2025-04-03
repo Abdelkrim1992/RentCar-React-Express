@@ -312,7 +312,7 @@ const CarManager: React.FC = () => {
               Add Car
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Car</DialogTitle>
               <DialogDescription>
@@ -685,7 +685,7 @@ const CarManager: React.FC = () => {
       
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Car</DialogTitle>
             <DialogDescription>

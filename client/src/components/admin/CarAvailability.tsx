@@ -272,7 +272,7 @@ const CarAvailabilityManager: React.FC = () => {
               Add Availability
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Car Availability</DialogTitle>
               <DialogDescription>
@@ -513,7 +513,7 @@ const CarAvailabilityManager: React.FC = () => {
       
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Car Availability</DialogTitle>
             <DialogDescription>
