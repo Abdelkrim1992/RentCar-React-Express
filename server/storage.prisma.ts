@@ -875,7 +875,8 @@ export class DatabaseStorage implements IStorage {
             start_date = ${availability.startDate !== undefined ? availability.startDate : existing.start_date},
             end_date = ${availability.endDate !== undefined ? availability.endDate : existing.end_date},
             is_available = ${availability.isAvailable !== undefined ? availability.isAvailable : existing.is_available},
-            car_type = ${carType !== undefined ? carType : existing.car_type}
+            car_type = ${carType !== undefined ? carType : existing.car_type},
+            city = ${availability.city !== undefined ? availability.city : existing.city}
           WHERE id = ${id}
         `;
         console.log('Updated car availability with car_type column');
@@ -888,7 +889,8 @@ export class DatabaseStorage implements IStorage {
             car_id = ${availability.carId !== undefined ? availability.carId : existing.car_id},
             start_date = ${availability.startDate !== undefined ? availability.startDate : existing.start_date},
             end_date = ${availability.endDate !== undefined ? availability.endDate : existing.end_date},
-            is_available = ${availability.isAvailable !== undefined ? availability.isAvailable : existing.is_available}
+            is_available = ${availability.isAvailable !== undefined ? availability.isAvailable : existing.is_available},
+            city = ${availability.city !== undefined ? availability.city : existing.city}
           WHERE id = ${id}
         `;
         console.log('Updated car availability without car_type column');
@@ -941,6 +943,7 @@ export class DatabaseStorage implements IStorage {
         endDate: new Date(row.end_date),
         isAvailable: Boolean(row.is_available),
         carType: row.car_type || undefined,
+        city: row.city || undefined,
         createdAt: new Date(row.created_at),
         car: row.car_name ? {
           id: Number(row.car_id),
