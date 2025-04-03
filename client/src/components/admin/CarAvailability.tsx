@@ -134,11 +134,19 @@ const CarAvailabilityManager: React.FC = () => {
     mutationFn: (data: CarAvailabilityFormValues) => {
       // Find the selected car to get its type
       const selectedCar = cars.find((car: Car) => car.id === data.carId);
+      
+      // Log the data being sent to the API
+      console.log('Adding car availability with data:', {
+        ...data,
+        carType: selectedCar?.type,
+        city: data.city || ''
+      });
+      
       // Include the car type in the data sent to the API
       return apiRequest('POST', '/api/cars/availability', {
         ...data,
         carType: selectedCar?.type,
-        city: data.city || '' // Ensure city is included
+        city: data.city || ''  // Remove optional chaining and ensure city is included
       });
     },
     onSuccess: () => {
@@ -165,6 +173,17 @@ const CarAvailabilityManager: React.FC = () => {
     mutationFn: (data: CarAvailabilityFormValues & { id: number }) => {
       // Find the selected car to get its type
       const selectedCar = cars.find((car: Car) => car.id === data.carId);
+      
+      // Log the data being sent to the API
+      console.log('Updating car availability with data:', {
+        id: data.id,
+        carId: data.carId,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        isAvailable: data.isAvailable,
+        carType: selectedCar?.type,
+        city: data.city || ''
+      });
       
       return apiRequest(
         'PATCH', 

@@ -49,6 +49,7 @@ const carAvailabilitySchema = z.object({
   startDate: z.date(),
   endDate: z.date(),
   isAvailable: z.boolean().optional().default(true),
+  city: z.string().optional(),
 });
 
 const userPreferencesSchema = z.object({
