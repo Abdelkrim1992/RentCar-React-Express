@@ -56,6 +56,7 @@ const carAvailabilityFormSchema = z.object({
   startDate: z.date({ required_error: 'Please select a start date' }),
   endDate: z.date({ required_error: 'Please select an end date' }),
   isAvailable: z.boolean().default(true),
+  carType: z.string().optional(),
 });
 
 type CarAvailabilityFormValues = z.infer<typeof carAvailabilityFormSchema>;
@@ -72,6 +73,7 @@ interface CarAvailability {
   startDate: string;
   endDate: string;
   isAvailable: boolean;
+  carType?: string;
   createdAt: string;
   car?: {
     id: number;
@@ -127,8 +129,15 @@ const CarAvailabilityManager: React.FC = () => {
 
   // Add mutation
   const addMutation = useMutation({
-    mutationFn: (data: CarAvailabilityFormValues) =>
-      apiRequest('POST', '/api/cars/availability', data),
+    mutationFn: (data: CarAvailabilityFormValues) => {
+      // Find the selected car to get its type
+      const selectedCar = cars.find((car: Car) => car.id === data.carId);
+      // Include the car type in the data sent to the API
+      return apiRequest('POST', '/api/cars/availability', {
+        ...data,
+        carType: selectedCar?.type
+      });
+    },
     onSuccess: () => {
       toast({
         title: 'Success',
@@ -150,8 +159,11 @@ const CarAvailabilityManager: React.FC = () => {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data: CarAvailabilityFormValues & { id: number }) =>
-      apiRequest(
+    mutationFn: (data: CarAvailabilityFormValues & { id: number }) => {
+      // Find the selected car to get its type
+      const selectedCar = cars.find((car: Car) => car.id === data.carId);
+      
+      return apiRequest(
         'PATCH', 
         `/api/cars/availability/${data.id}`, 
         {
@@ -159,8 +171,10 @@ const CarAvailabilityManager: React.FC = () => {
           startDate: data.startDate,
           endDate: data.endDate,
           isAvailable: data.isAvailable,
+          carType: selectedCar?.type,
         }
-      ),
+      );
+    },
     onSuccess: () => {
       toast({
         title: 'Success',

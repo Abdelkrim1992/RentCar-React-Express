@@ -299,14 +299,24 @@ const AvailabilityChecker: React.FC = () => {
                                 {isLoading ? (
                                   <SelectItem value="loading" disabled>Loading...</SelectItem>
                                 ) : (
-                                  carTypes.map((type) => (
-                                    <SelectItem key={type} value={type}>
-                                      {type}
+                                  <>
+                                    <SelectItem key="All Cars" value="All Cars">
+                                      All Cars
                                     </SelectItem>
-                                  ))
+                                    {carTypes.map((type) => (
+                                      <SelectItem key={type} value={type}>
+                                        {type}
+                                      </SelectItem>
+                                    ))}
+                                  </>
                                 )}
                               </SelectContent>
                             </Select>
+                            {form.watch('carType') === 'All Cars' && (
+                              <p className="mt-2 text-xs text-gray-500">
+                                Showing all available cars regardless of type
+                              </p>
+                            )}
                             <FormMessage />
                           </FormItem>
                         )}
