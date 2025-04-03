@@ -389,29 +389,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Fetching all car availabilities");
       
-      // For now, let's return a mock success response to check if the frontend can receive it
-      // This is a temporary debugging measure to test route functionality
-      const allCars = await storage.getAllCars();
-      const mockAvailabilities = allCars.slice(0, 3).map(car => ({
-        id: car.id,
-        carId: car.id,
-        startDate: new Date(),
-        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-        isAvailable: true,
-        createdAt: new Date(),
-        car: {
-          id: car.id,
-          name: car.name,
-          type: car.type
-        }
-      }));
-      
-      console.log("Generated sample car availabilities for testing:", mockAvailabilities.length);
+      // Get actual car availabilities from the database
+      const availabilities = await storage.getAllCarAvailabilities();
+      console.log(`Retrieved ${availabilities.length} car availabilities from database`);
       
       res.status(200).json({
         success: true,
-        data: mockAvailabilities,
-        message: "Car availabilities loaded (test data)"
+        data: availabilities
       });
     } catch (error) {
       console.error("Error fetching car availabilities:", error);
