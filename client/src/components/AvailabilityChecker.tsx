@@ -54,9 +54,6 @@ const availabilityFormSchema = z.object({
   returnDate: z.date({
     required_error: "Return date is required",
   }),
-  carType: z.string({
-    required_error: "Car type is required",
-  }),
 }).refine(data => {
   return data.returnDate > data.pickupDate;
 }, {
@@ -69,7 +66,7 @@ type AvailabilityFormValues = z.infer<typeof availabilityFormSchema>;
 const AvailabilityChecker: React.FC = () => {
   const [, navigate] = useLocation();
   const [searched, setSearched] = useState(false);
-  const [selectedCarType, setSelectedCarType] = useState<string>('');
+  // Removed car type filtering as per requirements
   const [currency, setCurrency] = useState('USD');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -112,7 +109,6 @@ const AvailabilityChecker: React.FC = () => {
     defaultValues: {
       pickupDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
       returnDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
-      carType: '',
     },
   });
 
@@ -125,14 +121,13 @@ const AvailabilityChecker: React.FC = () => {
   // Function to check availability using the server API
   function checkAvailability(data: AvailabilityFormValues) {
     setSearched(true);
-    setSelectedCarType(data.carType);
     setIsLoading(true);
     setError(null);
     
     console.log('Checking availability with:', data);
     
     // Query server for available cars
-    fetch(`/api/cars/available?startDate=${data.pickupDate.toISOString()}&endDate=${data.returnDate.toISOString()}&type=${encodeURIComponent(data.carType)}`)
+    fetch(`/api/cars/available?startDate=${data.pickupDate.toISOString()}&endDate=${data.returnDate.toISOString()}`)
       .then(response => {
         if (!response.ok) {
           throw new Error(`Server responded with status ${response.status}`);
@@ -146,7 +141,7 @@ const AvailabilityChecker: React.FC = () => {
           setFilteredCars(result.data || []);
           
           if (result.data && result.data.length === 0) {
-            setError(`No ${data.carType} cars available for the selected dates. Please try different dates or car type.`);
+            setError(`No cars available for the selected dates. Please try different dates.`);
           } else {
             setError(null);
           }
@@ -170,7 +165,7 @@ const AvailabilityChecker: React.FC = () => {
         <div className="text-center mb-10">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Find Your Perfect Ride</h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Select your dates and preferred car type to see our available vehicles for your trip
+            Select your dates to see our available vehicles for your trip
           </p>
         </div>
         
@@ -279,48 +274,8 @@ const AvailabilityChecker: React.FC = () => {
                         )}
                       />
                       
-                      {/* Car Type */}
-                      <FormField
-                        control={form.control}
-                        name="carType"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Car Type</FormLabel>
-                            <Select 
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select a car type" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {isLoading ? (
-                                  <SelectItem value="loading" disabled>Loading...</SelectItem>
-                                ) : (
-                                  <>
-                                    <SelectItem key="All Cars" value="All Cars">
-                                      All Cars
-                                    </SelectItem>
-                                    {carTypes.map((type) => (
-                                      <SelectItem key={type} value={type}>
-                                        {type}
-                                      </SelectItem>
-                                    ))}
-                                  </>
-                                )}
-                              </SelectContent>
-                            </Select>
-                            {form.watch('carType') === 'All Cars' && (
-                              <p className="mt-2 text-xs text-gray-500">
-                                Showing all available cars regardless of type
-                              </p>
-                            )}
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      {/* Empty space for third grid column on large screens */}
+                      <div className="hidden md:block"></div>
                     </div>
                     
                     <div className="flex justify-end">
@@ -349,13 +304,13 @@ const AvailabilityChecker: React.FC = () => {
               <div className="mb-8">
                 <h3 className="text-2xl font-bold mb-2">
                   {filteredCars.length > 0 
-                    ? `Available ${selectedCarType} Cars (${filteredCars.length})` 
-                    : `No ${selectedCarType} Cars Available`}
+                    ? `Available Cars (${filteredCars.length})` 
+                    : `No Cars Available`}
                 </h3>
                 <p className="text-gray-600">
                   {filteredCars.length > 0 
-                    ? `Book your ${selectedCarType} for ${daysBetween(form.watch('pickupDate'), form.watch('returnDate'))} days`
-                    : "Please try different dates or car type"}
+                    ? `Book your car for ${daysBetween(form.watch('pickupDate'), form.watch('returnDate'))} days`
+                    : "Please try different dates"}
                 </p>
               </div>
               
@@ -367,7 +322,7 @@ const AvailabilityChecker: React.FC = () => {
                     </svg>
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 mb-2">Checking Availability</h3>
-                  <p className="text-gray-600 mb-6">We're searching for {selectedCarType} cars for your selected dates...</p>
+                  <p className="text-gray-600 mb-6">We're searching for available cars for your selected dates...</p>
                 </div>
               ) : error ? (
                 <div className="text-center p-10 bg-gray-50 rounded-lg">
@@ -485,7 +440,7 @@ const AvailabilityChecker: React.FC = () => {
                     </svg>
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 mb-2">No Vehicles Available</h3>
-                  <p className="text-gray-600 mb-6">We couldn't find any {selectedCarType} cars available for your selected dates.</p>
+                  <p className="text-gray-600 mb-6">We couldn't find any cars available for your selected dates.</p>
                   <Button 
                     variant="outline"
                     onClick={() => form.reset()}
