@@ -237,6 +237,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get available cars for date range (must come before the :id route)
+  app.get("/api/cars/available", async (req, res) => {
+    try {
+      const { startDate, endDate, type } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({
+          success: false,
+          message: "Start date and end date are required"
+        });
+      }
+      
+      console.log('Getting available cars for:', { startDate, endDate, type });
+      
+      try {
+        const parsedStartDate = new Date(startDate as string);
+        const parsedEndDate = new Date(endDate as string);
+        
+        // Validate dates
+        if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid date format"
+          });
+        }
+        
+        const carType = type && type !== 'All Cars' ? type as string : undefined;
+        
+        const availableCars = await storage.getAvailableCars(
+          parsedStartDate,
+          parsedEndDate,
+          carType
+        );
+        
+        console.log(`Found ${availableCars.length} available cars`);
+        
+        return res.status(200).json({
+          success: true,
+          data: availableCars
+        });
+      } catch (dbError) {
+        console.error("Database error fetching available cars:", dbError);
+        
+        // If it's a database error related to the car_availabilities table,
+        // fallback to returning all cars of the requested type
+        let fallbackCars: any[] = [];
+        try {
+          if (type && type !== 'All Cars') {
+            fallbackCars = await storage.getCarsByType(type as string);
+          } else {
+            fallbackCars = await storage.getAllCars();
+          }
+          
+          return res.status(200).json({
+            success: true,
+            data: fallbackCars,
+            message: "Availability system is temporarily unavailable. Showing all cars."
+          });
+        } catch (fallbackError) {
+          // If fallback also fails, throw to the outer catch block
+          throw fallbackError;
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching available cars:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch available cars. Please try again later.",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
   // Get a car by ID
   app.get("/api/cars/:id", async (req, res) => {
     try {
@@ -542,78 +615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get available cars for date range
-  app.get("/api/cars/available", async (req, res) => {
-    try {
-      const { startDate, endDate, type } = req.query;
-      
-      if (!startDate || !endDate) {
-        return res.status(400).json({
-          success: false,
-          message: "Start date and end date are required"
-        });
-      }
-      
-      console.log('Getting available cars for:', { startDate, endDate, type });
-      
-      try {
-        const parsedStartDate = new Date(startDate as string);
-        const parsedEndDate = new Date(endDate as string);
-        
-        // Validate dates
-        if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
-          return res.status(400).json({
-            success: false,
-            message: "Invalid date format"
-          });
-        }
-        
-        const carType = type && type !== 'All Cars' ? type as string : undefined;
-        
-        const availableCars = await storage.getAvailableCars(
-          parsedStartDate,
-          parsedEndDate,
-          carType
-        );
-        
-        console.log(`Found ${availableCars.length} available cars`);
-        
-        return res.status(200).json({
-          success: true,
-          data: availableCars
-        });
-      } catch (dbError) {
-        console.error("Database error fetching available cars:", dbError);
-        
-        // If it's a database error related to the car_availabilities table,
-        // fallback to returning all cars of the requested type
-        let fallbackCars: any[] = [];
-        try {
-          if (type && type !== 'All Cars') {
-            fallbackCars = await storage.getCarsByType(type as string);
-          } else {
-            fallbackCars = await storage.getAllCars();
-          }
-          
-          return res.status(200).json({
-            success: true,
-            data: fallbackCars,
-            message: "Availability system is temporarily unavailable. Showing all cars."
-          });
-        } catch (fallbackError) {
-          // If fallback also fails, throw to the outer catch block
-          throw fallbackError;
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching available cars:", error);
-      return res.status(500).json({
-        success: false,
-        message: "Failed to fetch available cars. Please try again later.",
-        error: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
+
 
   // =============== USER PREFERENCES ROUTES ===============
 

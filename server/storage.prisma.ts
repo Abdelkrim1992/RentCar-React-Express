@@ -962,112 +962,198 @@ export class DatabaseStorage implements IStorage {
         carType 
       });
       
-      // First get all cars that match the basic criteria
-      let carsQuery = `
-        SELECT c.*
-        FROM "cars" c
-        WHERE 1=1
-      `;
-      
-      // Parameters for the query
-      const queryParams: any[] = [];
-      let paramCounter = 1;
-      
-      // Add car type filter if specified
-      if (carType && carType !== 'All Cars') {
-        carsQuery += ` AND c.type = $${paramCounter}`;
-        queryParams.push(carType);
-        paramCounter++;
+      // Try first with the standard query that includes car_type
+      try {
+        return await this.getAvailableCarsWithCarType(startDate, endDate, carType);
+      } catch (err: any) {
+        // If the query fails because car_type column doesn't exist, fall back to simpler query
+        if (err?.meta?.message?.includes('car_type does not exist')) {
+          console.log('Falling back to query without car_type filter in car_availabilities table');
+          return await this.getAvailableCarsWithoutCarTypeColumn(startDate, endDate, carType);
+        }
+        throw err; // Re-throw if it's a different error
       }
-      
-      // For checking availability, we need to:
-      // 1. Include cars that have no availability records (these are always available)
-      // 2. Include cars that have availability records marking them as available for this period
-      // 3. Exclude cars that have any availability records marking them as unavailable for this period
-      carsQuery += `
-        AND (
-          -- Case 1: Cars with no availability records are considered available
-          NOT EXISTS (
-            SELECT 1 FROM "car_availabilities" ca 
-            WHERE ca.car_id = c.id
-          )
-          OR
-          -- Case 2: Cars that are explicitly marked as available for this period with matching car type
-          EXISTS (
-            SELECT 1 FROM "car_availabilities" ca 
-            WHERE ca.car_id = c.id 
-            AND ca.is_available = true
-            AND (
-              (ca.start_date <= $${paramCounter} AND ca.end_date >= $${paramCounter+1})
-            )
-      `;
-      
-      // Add car type filter to availability records if specified
-      if (carType && carType !== 'All Cars') {
-        carsQuery += `
-            AND (ca.car_type IS NULL OR ca.car_type = $${paramCounter+2})
-        `;
-        queryParams.push(endDate, startDate, carType);
-        paramCounter += 3;
-      } else {
-        queryParams.push(endDate, startDate);
-        paramCounter += 2;
-      }
-      
-      carsQuery += `
-          )
-          -- Case 3: We exclude cars with any unavailable periods that overlap with requested dates
-          AND NOT EXISTS (
-            SELECT 1 FROM "car_availabilities" ca 
-            WHERE ca.car_id = c.id 
-            AND ca.is_available = false
-            AND (
-              (ca.start_date <= $${paramCounter} AND ca.end_date >= $${paramCounter+1})
-            )
-      `;
-      
-      // Add car type filter to unavailable check if specified  
-      if (carType && carType !== 'All Cars') {
-        carsQuery += `
-            AND (ca.car_type IS NULL OR ca.car_type = $${paramCounter+2})
-        `;
-        queryParams.push(endDate, startDate, carType);
-      } else {
-        queryParams.push(endDate, startDate);
-      }
-      
-      carsQuery += `
-          )
-        )
-      `;
-      
-      console.log('Query:', carsQuery);
-      console.log('Params:', queryParams);
-      
-      // Execute the query
-      const result = await prisma.$queryRawUnsafe(carsQuery, ...queryParams);
-      console.log(`Query returned ${result ? (Array.isArray(result) ? result.length : 1) : 0} cars`);
-      
-      // Convert the raw result to our Car type
-      return (Array.isArray(result) ? result : result ? [result] : []).map((row: any) => ({
-        id: Number(row.id),
-        name: row.name,
-        type: row.type,
-        seats: Number(row.seats),
-        power: row.power,
-        rating: row.rating,
-        price: row.price,
-        image: row.image,
-        special: row.special,
-        specialColor: row.special_color,
-        description: row.description,
-        features: Array.isArray(row.features) ? row.features : [],
-        createdAt: new Date(row.created_at)
-      }));
     } catch (error) {
       console.error('Error getting available cars:', error);
       throw error; // Allow the error to be handled by the caller
     }
+  }
+  
+  // Version with car_type column in car_availabilities table
+  private async getAvailableCarsWithCarType(startDate: Date, endDate: Date, carType?: string): Promise<Car[]> {
+    // First get all cars that match the basic criteria
+    let carsQuery = `
+      SELECT c.*
+      FROM "cars" c
+      WHERE 1=1
+    `;
+    
+    // Parameters for the query
+    const queryParams: any[] = [];
+    let paramCounter = 1;
+    
+    // Add car type filter if specified
+    if (carType && carType !== 'All Cars') {
+      carsQuery += ` AND c.type = $${paramCounter}`;
+      queryParams.push(carType);
+      paramCounter++;
+    }
+    
+    // For checking availability, we need to:
+    // 1. Include cars that have no availability records (these are always available)
+    // 2. Include cars that have availability records marking them as available for this period
+    // 3. Exclude cars that have any availability records marking them as unavailable for this period
+    carsQuery += `
+      AND (
+        -- Case 1: Cars with no availability records are considered available
+        NOT EXISTS (
+          SELECT 1 FROM "car_availabilities" ca 
+          WHERE ca.car_id = c.id
+        )
+        OR
+        -- Case 2: Cars that are explicitly marked as available for this period with matching car type
+        EXISTS (
+          SELECT 1 FROM "car_availabilities" ca 
+          WHERE ca.car_id = c.id 
+          AND ca.is_available = true
+          AND (
+            (ca.start_date <= $${paramCounter} AND ca.end_date >= $${paramCounter+1})
+          )
+    `;
+    
+    // Add car type filter to availability records if specified
+    if (carType && carType !== 'All Cars') {
+      carsQuery += `
+          AND (ca.car_type IS NULL OR ca.car_type = $${paramCounter+2})
+      `;
+      queryParams.push(endDate, startDate, carType);
+      paramCounter += 3;
+    } else {
+      queryParams.push(endDate, startDate);
+      paramCounter += 2;
+    }
+    
+    carsQuery += `
+        )
+        -- Case 3: We exclude cars with any unavailable periods that overlap with requested dates
+        AND NOT EXISTS (
+          SELECT 1 FROM "car_availabilities" ca 
+          WHERE ca.car_id = c.id 
+          AND ca.is_available = false
+          AND (
+            (ca.start_date <= $${paramCounter} AND ca.end_date >= $${paramCounter+1})
+          )
+    `;
+    
+    // Add car type filter to unavailable check if specified  
+    if (carType && carType !== 'All Cars') {
+      carsQuery += `
+          AND (ca.car_type IS NULL OR ca.car_type = $${paramCounter+2})
+      `;
+      queryParams.push(endDate, startDate, carType);
+    } else {
+      queryParams.push(endDate, startDate);
+    }
+    
+    carsQuery += `
+        )
+      )
+    `;
+    
+    console.log('Query with car_type:', carsQuery);
+    console.log('Params:', queryParams);
+    
+    // Execute the query
+    const result = await prisma.$queryRawUnsafe(carsQuery, ...queryParams);
+    console.log(`Query returned ${result ? (Array.isArray(result) ? result.length : 1) : 0} cars`);
+    
+    // Convert the raw result to our Car type
+    return this.mapCarResults(result);
+  }
+  
+  // Version without car_type column in car_availabilities table
+  private async getAvailableCarsWithoutCarTypeColumn(startDate: Date, endDate: Date, carType?: string): Promise<Car[]> {
+    // First get all cars that match the basic criteria
+    let carsQuery = `
+      SELECT c.*
+      FROM "cars" c
+      WHERE 1=1
+    `;
+    
+    // Parameters for the query
+    const queryParams: any[] = [];
+    let paramCounter = 1;
+    
+    // Add car type filter if specified (this still works properly)
+    if (carType && carType !== 'All Cars') {
+      carsQuery += ` AND c.type = $${paramCounter}`;
+      queryParams.push(carType);
+      paramCounter++;
+    }
+    
+    // For checking availability, we need to:
+    // 1. Include cars that have no availability records (these are always available)
+    // 2. Include cars that have availability records marking them as available for this period
+    // 3. Exclude cars that have any availability records marking them as unavailable for this period
+    carsQuery += `
+      AND (
+        -- Case 1: Cars with no availability records are considered available
+        NOT EXISTS (
+          SELECT 1 FROM "car_availabilities" ca 
+          WHERE ca.car_id = c.id
+        )
+        OR
+        -- Case 2: Cars that are explicitly marked as available for this period
+        EXISTS (
+          SELECT 1 FROM "car_availabilities" ca 
+          WHERE ca.car_id = c.id 
+          AND ca.is_available = true
+          AND (
+            (ca.start_date <= $${paramCounter} AND ca.end_date >= $${paramCounter+1})
+          )
+        )
+        -- Case 3: We exclude cars with any unavailable periods that overlap with requested dates
+        AND NOT EXISTS (
+          SELECT 1 FROM "car_availabilities" ca 
+          WHERE ca.car_id = c.id 
+          AND ca.is_available = false
+          AND (
+            (ca.start_date <= $${paramCounter+2} AND ca.end_date >= $${paramCounter+3})
+          )
+        )
+      )
+    `;
+    
+    queryParams.push(endDate, startDate, endDate, startDate);
+    
+    console.log('Query without car_type:', carsQuery);
+    console.log('Params:', queryParams);
+    
+    // Execute the query
+    const result = await prisma.$queryRawUnsafe(carsQuery, ...queryParams);
+    console.log(`Query returned ${result ? (Array.isArray(result) ? result.length : 1) : 0} cars`);
+    
+    // Convert the raw result to our Car type
+    return this.mapCarResults(result);
+  }
+  
+  // Helper to map database results to Car objects
+  private mapCarResults(result: any): Car[] {
+    return (Array.isArray(result) ? result : result ? [result] : []).map((row: any) => ({
+      id: Number(row.id),
+      name: row.name,
+      type: row.type,
+      seats: Number(row.seats),
+      power: row.power,
+      rating: row.rating,
+      price: row.price,
+      image: row.image,
+      special: row.special,
+      specialColor: row.special_color,
+      description: row.description,
+      features: Array.isArray(row.features) ? row.features : [],
+      createdAt: new Date(row.created_at)
+    }));
   }
 
   // User preferences operations
