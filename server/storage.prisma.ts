@@ -956,26 +956,62 @@ export class DatabaseStorage implements IStorage {
   
   async getAvailableCars(startDate: Date, endDate: Date, carType?: string): Promise<Car[]> {
     try {
-      console.log('Checking for available cars:', { 
+      console.log('Getting cars directly from car_availabilities table:', { 
         startDate: startDate.toISOString(), 
         endDate: endDate.toISOString(), 
         carType 
       });
       
-      // Try first with the standard query that includes car_type
-      try {
-        return await this.getAvailableCarsWithCarType(startDate, endDate, carType);
-      } catch (err: any) {
-        // If the query fails because car_type column doesn't exist, fall back to simpler query
-        if (err?.meta?.message?.includes('car_type does not exist')) {
-          console.log('Falling back to query without car_type filter in car_availabilities table');
-          return await this.getAvailableCarsWithoutCarTypeColumn(startDate, endDate, carType);
-        }
-        throw err; // Re-throw if it's a different error
+      // Query to get cars from car_availabilities table that are available during the requested period
+      const query = `
+        SELECT c.*
+        FROM cars c
+        INNER JOIN car_availabilities ca ON c.id = ca.car_id
+        WHERE ca.is_available = true
+        AND ca.start_date <= $1 
+        AND ca.end_date >= $2
+      `;
+      
+      const params = [endDate, startDate];
+      
+      // Add car type filter if specified
+      let finalQuery = query;
+      if (carType && carType !== 'All Cars') {
+        finalQuery += ` AND c.type = $3`;
+        params.push(carType);
       }
+      
+      // Add ordering and remove duplicates
+      finalQuery += ` GROUP BY c.id ORDER BY c.name`;
+      
+      // Execute the query
+      console.log('Executing query:', finalQuery);
+      console.log('With params:', params);
+      
+      const results = await prisma.$queryRawUnsafe(finalQuery, ...params);
+      console.log(`Found ${results.length} available cars`);
+      
+      return this.mapCarResults(results);
     } catch (error) {
-      console.error('Error getting available cars:', error);
-      throw error; // Allow the error to be handled by the caller
+      console.error('Error getting available cars from car_availabilities:', error);
+      
+      // Attempt to fall back to the previous implementation if there's an error
+      try {
+        console.log('Falling back to previous car availability implementation');
+        try {
+          return await this.getAvailableCarsWithCarType(startDate, endDate, carType);
+        } catch (err: any) {
+          // If the query fails because car_type column doesn't exist, fall back to simpler query
+          if (err?.meta?.message?.includes('car_type does not exist')) {
+            console.log('Falling back to query without car_type filter in car_availabilities table');
+            return await this.getAvailableCarsWithoutCarTypeColumn(startDate, endDate, carType);
+          }
+          throw err; // Re-throw if it's a different error
+        }
+      } catch (fallbackError) {
+        console.error('Fallback query also failed:', fallbackError);
+        throw error; // Throw the original error
+      }
     }
   }
   
