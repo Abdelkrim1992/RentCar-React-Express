@@ -693,9 +693,9 @@ export class DatabaseStorage implements IStorage {
       // Try first with car_type column
       try {
         const result = await prisma.$queryRaw`
-          INSERT INTO car_availabilities (car_id, start_date, end_date, is_available, car_type, created_at)
-          VALUES (${availability.carId}, ${availability.startDate}, ${availability.endDate}, ${availability.isAvailable ?? true}, ${carType}, NOW())
-          RETURNING id, car_id, start_date, end_date, is_available, car_type, created_at
+          INSERT INTO car_availabilities (car_id, start_date, end_date, is_available, car_type, city, created_at)
+          VALUES (${availability.carId}, ${availability.startDate}, ${availability.endDate}, ${availability.isAvailable ?? true}, ${carType}, ${availability.city}, NOW())
+          RETURNING id, car_id, start_date, end_date, is_available, car_type, city, created_at
         `;
         
         // Convert the raw result to our CarAvailability type
@@ -707,15 +707,16 @@ export class DatabaseStorage implements IStorage {
           endDate: new Date(created.end_date),
           isAvailable: Boolean(created.is_available),
           carType: created.car_type,
+          city: created.city,
           createdAt: new Date(created.created_at)
         };
       } catch (e) {
         console.log('Error inserting with car_type, trying without car_type column:', e);
         // Fallback if car_type column doesn't exist
         const fallbackResult = await prisma.$queryRaw`
-          INSERT INTO car_availabilities (car_id, start_date, end_date, is_available, created_at)
-          VALUES (${availability.carId}, ${availability.startDate}, ${availability.endDate}, ${availability.isAvailable ?? true}, NOW())
-          RETURNING id, car_id, start_date, end_date, is_available, created_at
+          INSERT INTO car_availabilities (car_id, start_date, end_date, is_available, city, created_at)
+          VALUES (${availability.carId}, ${availability.startDate}, ${availability.endDate}, ${availability.isAvailable ?? true}, ${availability.city}, NOW())
+          RETURNING id, car_id, start_date, end_date, is_available, city, created_at
         `;
         
         // Convert the raw result to our CarAvailability type
@@ -727,6 +728,7 @@ export class DatabaseStorage implements IStorage {
           endDate: new Date(created.end_date),
           isAvailable: Boolean(created.is_available),
           carType: carType,  // Use the car type we got earlier
+          city: created.city,
           createdAt: new Date(created.created_at)
         };
       }
@@ -789,6 +791,7 @@ export class DatabaseStorage implements IStorage {
           endDate: avail.endDate,
           isAvailable: avail.isAvailable,
           carType: avail.carType || (avail.car ? avail.car.type : undefined),
+          city: avail.city,
           createdAt: avail.createdAt,
           car: avail.car ? {
             id: avail.car.id,
@@ -816,6 +819,7 @@ export class DatabaseStorage implements IStorage {
           endDate: new Date(row.end_date),
           isAvailable: Boolean(row.is_available),
           carType: row.car_type || undefined,
+          city: row.city || undefined,
           createdAt: new Date(row.created_at),
           car: row.car_name ? {
             id: Number(row.car_id),
