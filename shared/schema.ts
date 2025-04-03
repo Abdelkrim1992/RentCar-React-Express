@@ -130,6 +130,7 @@ export const carAvailabilitySchema = z.object({
   startDate: z.date(),
   endDate: z.date(),
   isAvailable: z.boolean().default(true),
+  carType: z.string().optional(),
   createdAt: z.date()
 });
 
@@ -138,6 +139,7 @@ export const insertCarAvailabilitySchema = carAvailabilitySchema.omit({
   createdAt: true 
 }).extend({
   isAvailable: z.boolean().optional().default(true),
+  carType: z.string().optional(),
 });
 
 // User Preferences schemas

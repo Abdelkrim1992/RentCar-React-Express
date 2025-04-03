@@ -58,6 +58,7 @@ export type CarAvailability = {
   startDate: Date;
   endDate: Date;
   isAvailable: boolean;
+  carType?: string;
   createdAt: Date;
   car?: {
     id: number;
@@ -143,6 +144,7 @@ export namespace AppTypes {
     startDate: Date;
     endDate: Date;
     isAvailable?: boolean;
+    carType?: string;
   };
   
   export type CarAvailabilityUpdateInput = {
@@ -150,6 +152,7 @@ export namespace AppTypes {
     startDate?: Date;
     endDate?: Date;
     isAvailable?: boolean;
+    carType?: string;
   };
   
   export type UserPreferencesCreateInput = {

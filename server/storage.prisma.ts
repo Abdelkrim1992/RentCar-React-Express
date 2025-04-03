@@ -673,10 +673,27 @@ export class DatabaseStorage implements IStorage {
   // Car availability operations
   async createCarAvailability(availability: AppTypes.CarAvailabilityCreateInput): Promise<CarAvailability> {
     try {
+      // First, get the car type from the car table
+      let carType = availability.carType;
+      
+      if (!carType) {
+        try {
+          const car = await prisma.car.findUnique({
+            where: { id: availability.carId }
+          });
+          
+          if (car) {
+            carType = car.type;
+          }
+        } catch (err) {
+          console.error('Error fetching car type:', err);
+        }
+      }
+      
       const result = await prisma.$queryRaw`
-        INSERT INTO car_availabilities (car_id, start_date, end_date, is_available, created_at)
-        VALUES (${availability.carId}, ${availability.startDate}, ${availability.endDate}, ${availability.isAvailable ?? true}, NOW())
-        RETURNING id, car_id, start_date, end_date, is_available, created_at
+        INSERT INTO car_availabilities (car_id, start_date, end_date, is_available, car_type, created_at)
+        VALUES (${availability.carId}, ${availability.startDate}, ${availability.endDate}, ${availability.isAvailable ?? true}, ${carType}, NOW())
+        RETURNING id, car_id, start_date, end_date, is_available, car_type, created_at
       `;
       
       // Convert the raw result to our CarAvailability type
@@ -687,6 +704,7 @@ export class DatabaseStorage implements IStorage {
         startDate: new Date(created.start_date),
         endDate: new Date(created.end_date),
         isAvailable: Boolean(created.is_available),
+        carType: created.car_type,
         createdAt: new Date(created.created_at)
       };
     } catch (error) {
@@ -728,7 +746,7 @@ export class DatabaseStorage implements IStorage {
     try {
       // First try to use Prisma's auto-generated methods for better typesafety
       try {
-        const availabilities = await prisma.carAvailabilities.findMany({
+        const availabilities = await prisma.carAvailability.findMany({
           include: {
             car: {
               select: {
@@ -741,12 +759,13 @@ export class DatabaseStorage implements IStorage {
         });
         
         // Map to our CarAvailability type
-        return availabilities.map(avail => ({
+        return availabilities.map((avail: any) => ({
           id: avail.id,
           carId: avail.carId,
           startDate: avail.startDate,
           endDate: avail.endDate,
           isAvailable: avail.isAvailable,
+          carType: avail.carType || (avail.car ? avail.car.type : undefined),
           createdAt: avail.createdAt,
           car: avail.car ? {
             id: avail.car.id,
@@ -773,6 +792,7 @@ export class DatabaseStorage implements IStorage {
           startDate: new Date(row.start_date),
           endDate: new Date(row.end_date),
           isAvailable: Boolean(row.is_available),
+          carType: row.car_type || undefined,
           createdAt: new Date(row.created_at),
           car: row.car_name ? {
             id: Number(row.car_id),
@@ -807,6 +827,22 @@ export class DatabaseStorage implements IStorage {
       // Get the existing data to use for fields that aren't being updated
       const existing = Array.isArray(existingRecord) ? existingRecord[0] : existingRecord;
       
+      // Get or update car type if needed
+      let carType = availability.carType;
+      if (!carType && availability.carId !== undefined && availability.carId !== existing.car_id) {
+        try {
+          const car = await prisma.car.findUnique({
+            where: { id: availability.carId }
+          });
+          
+          if (car) {
+            carType = car.type;
+          }
+        } catch (err) {
+          console.error('Error fetching car type for update:', err);
+        }
+      }
+
       // Use direct Prisma query with template strings for more reliable updating
       const result = await prisma.$executeRaw`
         UPDATE car_availabilities 
@@ -814,7 +850,8 @@ export class DatabaseStorage implements IStorage {
           car_id = ${availability.carId !== undefined ? availability.carId : existing.car_id},
           start_date = ${availability.startDate !== undefined ? availability.startDate : existing.start_date},
           end_date = ${availability.endDate !== undefined ? availability.endDate : existing.end_date},
-          is_available = ${availability.isAvailable !== undefined ? availability.isAvailable : existing.is_available}
+          is_available = ${availability.isAvailable !== undefined ? availability.isAvailable : existing.is_available},
+          car_type = ${carType !== undefined ? carType : existing.car_type}
         WHERE id = ${id}
       `;
       
@@ -842,6 +879,7 @@ export class DatabaseStorage implements IStorage {
         startDate: new Date(row.start_date),
         endDate: new Date(row.end_date),
         isAvailable: Boolean(row.is_available),
+        carType: row.car_type || undefined,
         createdAt: new Date(row.created_at),
         car: row.car_name ? {
           id: Number(row.car_id),
@@ -906,7 +944,7 @@ export class DatabaseStorage implements IStorage {
             WHERE ca.car_id = c.id
           )
           OR
-          -- Case 2: Cars that are explicitly marked as available for this period
+          -- Case 2: Cars that are explicitly marked as available for this period with matching car type
           EXISTS (
             SELECT 1 FROM "car_availabilities" ca 
             WHERE ca.car_id = c.id 
@@ -914,6 +952,21 @@ export class DatabaseStorage implements IStorage {
             AND (
               (ca.start_date <= $${paramCounter} AND ca.end_date >= $${paramCounter+1})
             )
+      `;
+      
+      // Add car type filter to availability records if specified
+      if (carType && carType !== 'All Cars') {
+        carsQuery += `
+            AND (ca.car_type IS NULL OR ca.car_type = $${paramCounter+2})
+        `;
+        queryParams.push(endDate, startDate, carType);
+        paramCounter += 3;
+      } else {
+        queryParams.push(endDate, startDate);
+        paramCounter += 2;
+      }
+      
+      carsQuery += `
           )
           -- Case 3: We exclude cars with any unavailable periods that overlap with requested dates
           AND NOT EXISTS (
@@ -921,14 +974,24 @@ export class DatabaseStorage implements IStorage {
             WHERE ca.car_id = c.id 
             AND ca.is_available = false
             AND (
-              (ca.start_date <= $${paramCounter+2} AND ca.end_date >= $${paramCounter+3})
+              (ca.start_date <= $${paramCounter} AND ca.end_date >= $${paramCounter+1})
             )
+      `;
+      
+      // Add car type filter to unavailable check if specified  
+      if (carType && carType !== 'All Cars') {
+        carsQuery += `
+            AND (ca.car_type IS NULL OR ca.car_type = $${paramCounter+2})
+        `;
+        queryParams.push(endDate, startDate, carType);
+      } else {
+        queryParams.push(endDate, startDate);
+      }
+      
+      carsQuery += `
           )
         )
       `;
-      
-      // Add the date parameters (they're used twice in the query)
-      queryParams.push(endDate, startDate, endDate, startDate);
       
       console.log('Query:', carsQuery);
       console.log('Params:', queryParams);
@@ -965,7 +1028,22 @@ export class DatabaseStorage implements IStorage {
       const preferences = await prisma.userPreferences.findFirst({
         where: { userId }
       });
-      return preferences || undefined;
+      
+      if (!preferences) return undefined;
+      
+      // Convert the Prisma model to our UserPreferences type
+      return {
+        id: preferences.id,
+        userId: preferences.userId,
+        preferredCarTypes: preferences.preferredCarTypes,
+        preferredFeatures: preferences.preferredFeatures,
+        minSeats: preferences.minSeats === null ? undefined : preferences.minSeats,
+        maxBudget: preferences.maxBudget === null ? undefined : preferences.maxBudget,
+        travelPurpose: preferences.travelPurpose === null ? undefined : preferences.travelPurpose,
+        rentalFrequency: preferences.rentalFrequency === null ? undefined : preferences.rentalFrequency,
+        createdAt: preferences.createdAt,
+        updatedAt: preferences.updatedAt
+      };
     } catch (error) {
       console.error('Error getting user preferences:', error);
       return undefined;
@@ -974,9 +1052,23 @@ export class DatabaseStorage implements IStorage {
 
   async createUserPreferences(preferences: AppTypes.UserPreferencesCreateInput): Promise<UserPreferences> {
     try {
-      return await prisma.userPreferences.create({
+      const created = await prisma.userPreferences.create({
         data: preferences as any
       });
+      
+      // Convert the Prisma model to our UserPreferences type
+      return {
+        id: created.id,
+        userId: created.userId,
+        preferredCarTypes: created.preferredCarTypes,
+        preferredFeatures: created.preferredFeatures,
+        minSeats: created.minSeats === null ? undefined : created.minSeats,
+        maxBudget: created.maxBudget === null ? undefined : created.maxBudget,
+        travelPurpose: created.travelPurpose === null ? undefined : created.travelPurpose,
+        rentalFrequency: created.rentalFrequency === null ? undefined : created.rentalFrequency,
+        createdAt: created.createdAt,
+        updatedAt: created.updatedAt
+      };
     } catch (error) {
       console.error('Error creating user preferences:', error);
       throw error;
@@ -988,10 +1080,24 @@ export class DatabaseStorage implements IStorage {
       const existingPreferences = await this.getUserPreferences(userId);
       if (!existingPreferences) return undefined;
 
-      return await prisma.userPreferences.update({
+      const updated = await prisma.userPreferences.update({
         where: { id: existingPreferences.id },
         data: preferences as any
       });
+      
+      // Convert the Prisma model to our UserPreferences type
+      return {
+        id: updated.id,
+        userId: updated.userId,
+        preferredCarTypes: updated.preferredCarTypes,
+        preferredFeatures: updated.preferredFeatures,
+        minSeats: updated.minSeats === null ? undefined : updated.minSeats,
+        maxBudget: updated.maxBudget === null ? undefined : updated.maxBudget,
+        travelPurpose: updated.travelPurpose === null ? undefined : updated.travelPurpose,
+        rentalFrequency: updated.rentalFrequency === null ? undefined : updated.rentalFrequency,
+        createdAt: updated.createdAt,
+        updatedAt: updated.updatedAt
+      };
     } catch (error) {
       console.error('Error updating user preferences:', error);
       return undefined;
