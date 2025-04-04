@@ -570,6 +570,26 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
+  async deleteBooking(id: number): Promise<boolean> {
+    try {
+      // First check if booking exists
+      const booking = await this.getBookingById(id);
+      if (!booking) {
+        return false;
+      }
+
+      // Delete the booking
+      await prisma.booking.delete({
+        where: { id }
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting booking:', error);
+      return false;
+    }
+  }
+  
   // Car operations
   async createCar(car: AppTypes.CarCreateInput): Promise<Car> {
     try {

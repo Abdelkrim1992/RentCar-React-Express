@@ -24,6 +24,7 @@ export interface IStorage {
   getBookingsByUserId(userId: number): Promise<Booking[]>;
   updateBookingStatus(id: number, status: string): Promise<Booking | undefined>;
   updateBookingStatusWithReason(id: number, status: string, rejectionReason: string): Promise<Booking | undefined>;
+  deleteBooking(id: number): Promise<boolean>; // New method to delete a booking
   
   // Car operations
   createCar(car: InsertCar): Promise<Car>;

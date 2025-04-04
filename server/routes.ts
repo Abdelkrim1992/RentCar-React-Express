@@ -218,6 +218,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // We don't want to fail the status update if email sending fails
       }
       
+      // Delete the booking if it was rejected
+      if (status === 'rejected') {
+        try {
+          const deleted = await storage.deleteBooking(id);
+          console.log(`Rejected booking #${id} ${deleted ? 'deleted' : 'not deleted'} from database`);
+        } catch (deleteError) {
+          console.error("Error deleting rejected booking:", deleteError);
+          // Don't fail the overall operation if deletion fails
+        }
+      }
+      
       res.status(200).json({
         success: true,
         message: "Booking status updated successfully",
