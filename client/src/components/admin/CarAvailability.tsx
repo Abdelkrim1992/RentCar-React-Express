@@ -110,6 +110,26 @@ const CarAvailabilityManager: React.FC = () => {
   
   // Extract availabilities from response and ensure it's an array
   const availabilities = Array.isArray(availabilitiesResponse?.data) ? availabilitiesResponse?.data : [];
+  
+  // Debug log to see what data we're getting from the API
+  React.useEffect(() => {
+    if (availabilitiesResponse?.data) {
+      console.log('Car availabilities from API:', availabilitiesResponse.data);
+      // Check if city values are present
+      if (Array.isArray(availabilitiesResponse.data)) {
+        availabilitiesResponse.data.forEach((avail: any, index: number) => {
+          console.log(`Availability #${index + 1}:`, {
+            id: avail.id,
+            carId: avail.carId,
+            city: avail.city,
+            cityType: typeof avail.city,
+            hasCity: 'city' in avail,
+            cityValue: String(avail.city)
+          });
+        });
+      }
+    }
+  }, [availabilitiesResponse?.data]);
 
   // Form for adding new car availability
   const form = useForm<CarAvailabilityFormValues>({
@@ -534,7 +554,24 @@ const CarAvailabilityManager: React.FC = () => {
                     <TableCell>{format(new Date(availability.startDate), 'PP')}</TableCell>
                     <TableCell>{format(new Date(availability.endDate), 'PP')}</TableCell>
                     <TableCell>
-                      {availability.city || 'Not specified'}
+                      {(() => {
+                        // Debug in a self-invoking function to prevent React rendering issues
+                        console.log(`Rendering city for availability ${availability.id}:`, {
+                          city: availability.city,
+                          cityType: typeof availability.city,
+                          cityLength: availability.city?.length,
+                          cityEmpty: availability.city === "",
+                          cityNull: availability.city === null,
+                          cityUndefined: availability.city === undefined
+                        });
+                        
+                        // Return the city or "Not specified" if it's empty/null/undefined
+                        if (availability.city && availability.city.trim() !== '') {
+                          return availability.city;
+                        } else {
+                          return 'Not specified';
+                        }
+                      })()}
                     </TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

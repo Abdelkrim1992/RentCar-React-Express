@@ -784,21 +784,34 @@ export class DatabaseStorage implements IStorage {
         });
         
         // Map to our CarAvailability type
-        return availabilities.map((avail: any) => ({
-          id: avail.id,
-          carId: avail.carId,
-          startDate: avail.startDate,
-          endDate: avail.endDate,
-          isAvailable: avail.isAvailable,
-          carType: avail.carType || (avail.car ? avail.car.type : undefined),
-          city: avail.city,
-          createdAt: avail.createdAt,
-          car: avail.car ? {
-            id: avail.car.id,
-            name: avail.car.name,
-            type: avail.car.type
-          } : undefined
-        }));
+        // Add debug logging
+        console.log('Raw availabilities from Prisma:', availabilities);
+        
+        return availabilities.map((avail: any) => {
+          // Debug log for each availability
+          console.log(`Processing availability #${avail.id}:`, {
+            hasCity: 'city' in avail,
+            cityValue: avail.city,
+            cityType: typeof avail.city
+          });
+          
+          return {
+            id: avail.id,
+            carId: avail.carId,
+            startDate: avail.startDate,
+            endDate: avail.endDate,
+            isAvailable: avail.isAvailable,
+            carType: avail.carType || (avail.car ? avail.car.type : undefined),
+            // Ensure city is not null or undefined
+            city: avail.city || '',
+            createdAt: avail.createdAt,
+            car: avail.car ? {
+              id: avail.car.id,
+              name: avail.car.name,
+              type: avail.car.type
+            } : undefined
+          };
+        });
       } catch (prismaError) {
         console.log('Prisma findMany failed, falling back to raw query:', prismaError);
         
@@ -819,7 +832,7 @@ export class DatabaseStorage implements IStorage {
           endDate: new Date(row.end_date),
           isAvailable: Boolean(row.is_available),
           carType: row.car_type || undefined,
-          city: row.city || undefined,
+          city: row.city || "",
           createdAt: new Date(row.created_at),
           car: row.car_name ? {
             id: Number(row.car_id),
@@ -880,7 +893,7 @@ export class DatabaseStorage implements IStorage {
             end_date = ${availability.endDate !== undefined ? availability.endDate : existing.end_date},
             is_available = ${availability.isAvailable !== undefined ? availability.isAvailable : existing.is_available},
             car_type = ${carType !== undefined ? carType : existing.car_type},
-            city = ${availability.city !== undefined ? availability.city : existing.city}
+            city = ${availability.city !== undefined && availability.city !== null ? availability.city : (existing.city || '')}
           WHERE id = ${id}
         `;
         console.log('Updated car availability with car_type column');
@@ -894,7 +907,7 @@ export class DatabaseStorage implements IStorage {
             start_date = ${availability.startDate !== undefined ? availability.startDate : existing.start_date},
             end_date = ${availability.endDate !== undefined ? availability.endDate : existing.end_date},
             is_available = ${availability.isAvailable !== undefined ? availability.isAvailable : existing.is_available},
-            city = ${availability.city !== undefined ? availability.city : existing.city}
+            city = ${availability.city !== undefined && availability.city !== null ? availability.city : (existing.city || '')}
           WHERE id = ${id}
         `;
         console.log('Updated car availability without car_type column');
@@ -947,7 +960,7 @@ export class DatabaseStorage implements IStorage {
         endDate: new Date(row.end_date),
         isAvailable: Boolean(row.is_available),
         carType: row.car_type || undefined,
-        city: row.city || undefined,
+        city: row.city || "",
         createdAt: new Date(row.created_at),
         car: row.car_name ? {
           id: Number(row.car_id),

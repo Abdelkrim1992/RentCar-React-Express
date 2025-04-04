@@ -49,7 +49,9 @@ const carAvailabilitySchema = z.object({
   startDate: z.date(),
   endDate: z.date(),
   isAvailable: z.boolean().optional().default(true),
-  city: z.string().optional(),
+  carType: z.string().optional(),
+  // Ensure city is properly validated and transformed
+  city: z.string().optional().transform(val => val === undefined || val === null ? '' : val),
 });
 
 const userPreferencesSchema = z.object({
@@ -532,14 +534,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new car availability (admin access)
   app.post("/api/cars/availability", isAdmin, async (req, res) => {
     try {
+      console.log("Creating car availability with request body:", req.body);
+      console.log("City value in request:", req.body.city);
+      
       // Parse dates from ISO strings to Date objects for Zod validation
       const parsed = {
         ...req.body,
         startDate: new Date(req.body.startDate),
-        endDate: new Date(req.body.endDate)
+        endDate: new Date(req.body.endDate),
+        // Ensure city is set correctly
+        city: req.body.city || ''
       };
       
+      console.log("Parsed data before schema validation:", parsed);
       const availabilityData = carAvailabilitySchema.parse(parsed);
+      console.log("Validated availability data:", availabilityData);
+      
       const availability = await storage.createCarAvailability(availabilityData);
       
       res.status(201).json({
@@ -566,6 +576,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedData: any = { ...req.body };
       if (req.body.startDate) updatedData.startDate = new Date(req.body.startDate);
       if (req.body.endDate) updatedData.endDate = new Date(req.body.endDate);
+      
+      // Debug logs to trace city field
+      console.log("Update availability request body:", req.body);
+      console.log("City value:", req.body.city);
+      console.log("Updated data to be sent to storage:", updatedData);
       
       const updatedAvailability = await storage.updateCarAvailability(id, updatedData);
       
