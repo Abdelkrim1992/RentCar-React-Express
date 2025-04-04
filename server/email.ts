@@ -61,8 +61,21 @@ initializeTransporter();
 
 // Email templates for different booking statuses
 const getEmailTemplate = (booking: Booking, status: string, reason?: string) => {
-  // Handle both null and undefined for car field
-  const carName = booking.car ? booking.car.name : booking.carType;
+  // Get car name - always use the car name if available
+  let carName;
+  if (booking.car && booking.car.name) {
+    carName = booking.car.name;
+  } else if (booking.carId) {
+    // If we have a carId, try to fetch the car name directly
+    console.log(`Getting car name for booking #${booking.id} with carId: ${booking.carId}`);
+    carName = `Car #${booking.carId}`;
+  } else {
+    // Fallback to car type only if we don't have a car reference
+    carName = booking.carType;
+  }
+  
+  console.log(`Email template using car name: ${carName} for booking #${booking.id}`);
+  
   const pickupDate = new Date(booking.pickupDate).toLocaleDateString();
   const returnDate = new Date(booking.returnDate).toLocaleDateString();
   

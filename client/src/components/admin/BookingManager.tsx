@@ -262,7 +262,7 @@ const BookingManager: React.FC = () => {
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="text-sm font-medium">
-                          {booking.car?.name || booking.carType}
+                          {booking.car?.name || `Car #${booking.carId || 'Unknown'}`}
                         </span>
                         <span className="text-xs text-gray-500">
                           Type: {booking.carType}
