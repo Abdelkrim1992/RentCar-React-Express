@@ -212,6 +212,15 @@ export class MemStorage implements IStorage {
     return updatedBooking;
   }
   
+  async updateBookingStatusWithReason(id: number, status: string, rejectionReason: string): Promise<Booking | undefined> {
+    const booking = this.bookings.get(id);
+    if (!booking) return undefined;
+    
+    const updatedBooking: Booking = { ...booking, status, rejectionReason };
+    this.bookings.set(id, updatedBooking);
+    return updatedBooking;
+  }
+  
   // Car operations
   async createCar(car: AppTypes.CarCreateInput): Promise<Car> {
     const id = this.currentCarId++;
@@ -303,15 +312,23 @@ export class MemStorage implements IStorage {
     return this.carAvailabilities.delete(id);
   }
   
-  async getAvailableCars(startDate: Date, endDate: Date, carType?: string): Promise<Car[]> {
+  async getAvailableCars(startDate: Date, endDate: Date, carType?: string, city?: string): Promise<Car[]> {
     // Get all availabilities that overlap with the given date range
     const overlappingAvailabilities = Array.from(this.carAvailabilities.values()).filter(availability => {
       return availability.startDate <= endDate && availability.endDate >= startDate;
     });
     
+    // Filter by city if specified
+    let filteredAvailabilities = [...overlappingAvailabilities];
+    if (city && city !== 'all') {
+      filteredAvailabilities = filteredAvailabilities.filter(availability => 
+        availability.city === city
+      );
+    }
+    
     // Group availabilities by car ID
     const availabilityByCarId = new Map<number, CarAvailability[]>();
-    overlappingAvailabilities.forEach(availability => {
+    filteredAvailabilities.forEach(availability => {
       const entries = availabilityByCarId.get(availability.carId) || [];
       entries.push(availability);
       availabilityByCarId.set(availability.carId, entries);
@@ -534,6 +551,21 @@ export class DatabaseStorage implements IStorage {
       });
     } catch (error) {
       console.error('Error updating booking status:', error);
+      return undefined;
+    }
+  }
+  
+  async updateBookingStatusWithReason(id: number, status: string, rejectionReason: string): Promise<Booking | undefined> {
+    try {
+      return await prisma.booking.update({
+        where: { id },
+        data: { 
+          status,
+          rejectionReason
+        }
+      });
+    } catch (error) {
+      console.error('Error updating booking status with reason:', error);
       return undefined;
     }
   }

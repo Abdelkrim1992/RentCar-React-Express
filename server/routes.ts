@@ -179,7 +179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/bookings/:id/status", isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { status } = req.body;
+      const { status, rejectionReason } = req.body;
       
       if (!status) {
         return res.status(400).json({
@@ -188,7 +188,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const updatedBooking = await storage.updateBookingStatus(id, status);
+      // If the status is 'rejected' and a reason is provided, update the booking
+      // with the rejection reason
+      let updatedBooking;
+      if (status === 'rejected' && rejectionReason) {
+        updatedBooking = await storage.updateBookingStatusWithReason(id, status, rejectionReason);
+      } else {
+        updatedBooking = await storage.updateBookingStatus(id, status);
+      }
       
       if (!updatedBooking) {
         return res.status(404).json({

@@ -23,6 +23,7 @@ export interface IStorage {
   getBookingById(id: number): Promise<Booking | undefined>;
   getBookingsByUserId(userId: number): Promise<Booking[]>;
   updateBookingStatus(id: number, status: string): Promise<Booking | undefined>;
+  updateBookingStatusWithReason(id: number, status: string, rejectionReason: string): Promise<Booking | undefined>;
   
   // Car operations
   createCar(car: InsertCar): Promise<Car>;

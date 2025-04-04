@@ -15,6 +15,7 @@ const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const AdminCars = lazy(() => import("@/pages/admin/Cars"));
 const AdminSettings = lazy(() => import("@/pages/admin/Settings"));
 const AdminAvailability = lazy(() => import("@/pages/admin/Availability"));
+const AdminBookings = lazy(() => import("@/pages/admin/Bookings"));
 
 // Minimal loading placeholder - just shows content as it loads
 // No spinning animation that could block interaction
@@ -61,6 +62,14 @@ function Router() {
         <Suspense fallback={<MinimalLoading />}>
           <ProtectedRoute>
             <AdminAvailability />
+          </ProtectedRoute>
+        </Suspense>
+      </Route>
+      
+      <Route path="/admin/bookings">
+        <Suspense fallback={<MinimalLoading />}>
+          <ProtectedRoute>
+            <AdminBookings />
           </ProtectedRoute>
         </Suspense>
       </Route>

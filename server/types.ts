@@ -23,6 +23,7 @@ export type Booking = {
   email: string | null;
   phone: string | null;
   status: string;
+  rejectionReason?: string | null;
   createdAt: Date;
 };
 
