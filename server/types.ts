@@ -24,7 +24,15 @@ export type Booking = {
   phone: string | null;
   status: string;
   rejectionReason?: string | null;
+  notificationSent?: boolean;
+  currency?: string | null;
   createdAt: Date;
+  car?: {
+    id: number;
+    name: string;
+    type: string;
+  };
+  city?: string;
 };
 
 export type Car = {

@@ -72,6 +72,12 @@ interface Booking {
   status: string;
   rejectionReason?: string | null;
   createdAt: string | Date;
+  car?: {
+    id: number;
+    name: string;
+    type: string;
+  };
+  city?: string;
 }
 
 const BookingManager: React.FC = () => {
@@ -256,8 +262,16 @@ const BookingManager: React.FC = () => {
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="text-sm font-medium">
-                          {booking.carType}
+                          {booking.car?.name || booking.carType}
                         </span>
+                        <span className="text-xs text-gray-500">
+                          Type: {booking.carType}
+                        </span>
+                        {booking.city && (
+                          <span className="text-xs text-gray-500">
+                            City: {booking.city}
+                          </span>
+                        )}
                         <span className="text-xs text-gray-500">
                           Pick-up: {booking.pickupLocation}
                         </span>

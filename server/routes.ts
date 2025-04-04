@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage.prisma";
 import { AppTypes } from "./types";
 import { setupAuth, authenticateToken } from "./auth";
+import { sendBookingStatusEmail } from "./email";
 
 // We need to define our own validation schemas to match the Prisma types
 import { z } from "zod";
@@ -202,6 +203,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: false,
           message: `Booking with ID ${id} not found`
         });
+      }
+      
+      // Send email notification to customer
+      try {
+        if (updatedBooking.email) {
+          const emailSent = await sendBookingStatusEmail(updatedBooking, status);
+          console.log(`Email notification ${emailSent ? 'sent' : 'failed'} for booking #${id} status update to ${status}`);
+        } else {
+          console.log(`No email notification sent for booking #${id}: Customer email not available`);
+        }
+      } catch (emailError) {
+        console.error("Error sending email notification:", emailError);
+        // We don't want to fail the status update if email sending fails
       }
       
       res.status(200).json({
