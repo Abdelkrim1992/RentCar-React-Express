@@ -16,7 +16,7 @@ interface ApiResponse<T> {
 
 const AdminDashboard: React.FC = () => {
   // Fetch data for the dashboard
-  const { data: bookingsData, isLoading: bookingsLoading } = useQuery<ApiResponse<any>>({
+  const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useQuery<ApiResponse<any>>({
     queryKey: ['/api/bookings'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
     // Poll for new bookings every 15 seconds
@@ -35,7 +35,7 @@ const AdminDashboard: React.FC = () => {
   // Calculate some stats
   const totalBookings = bookings.length;
   const pendingBookings = bookings.filter(booking => booking.status === 'pending').length;
-  const confirmedBookings = bookings.filter(booking => booking.status === 'confirmed').length;
+  const confirmedBookings = bookings.filter(booking => booking.status === 'accepted').length;
   const totalCars = cars.length;
   const totalRevenue = bookings.reduce((acc, booking) => {
     // Find the car for this booking
@@ -54,7 +54,21 @@ const AdminDashboard: React.FC = () => {
     <AdminLayout>
       <div className="flex-1 space-y-4 p-8 pt-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <div className="flex items-center">
+            <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => refetchBookings()}
+              title="Refresh dashboard data"
+              className="ml-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+              </svg>
+            </Button>
+          </div>
           <div className="flex items-center space-x-2">
             <Link href="/admin/settings">
               <Button variant="outline">
@@ -95,7 +109,7 @@ const AdminDashboard: React.FC = () => {
                 <CardContent>
                   <div className="text-2xl font-bold">{totalBookings}</div>
                   <p className="text-xs text-muted-foreground">
-                    {pendingBookings} pending, {confirmedBookings} confirmed
+                    {pendingBookings} pending, {confirmedBookings} accepted
                   </p>
                 </CardContent>
               </Card>
@@ -129,11 +143,24 @@ const AdminDashboard: React.FC = () => {
             
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
               <Card className="col-span-4">
-                <CardHeader>
-                  <CardTitle>Recent Bookings</CardTitle>
-                  <CardDescription>
-                    {totalBookings} bookings this month
-                  </CardDescription>
+                <CardHeader className="flex flex-row items-start justify-between">
+                  <div>
+                    <CardTitle>Recent Bookings</CardTitle>
+                    <CardDescription>
+                      {totalBookings} bookings this month
+                    </CardDescription>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => refetchBookings()}
+                    title="Refresh bookings data"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                      <path d="M3 3v5h5"></path>
+                    </svg>
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   {bookingsLoading ? (
@@ -154,7 +181,7 @@ const AdminDashboard: React.FC = () => {
                               {new Date(booking.pickupDate).toLocaleDateString()} - {new Date(booking.returnDate).toLocaleDateString()}
                             </div>
                           </div>
-                          <Badge variant={booking.status === 'confirmed' ? 'default' : booking.status === 'pending' ? 'outline' : 'destructive'}>
+                          <Badge variant={booking.status === 'accepted' ? 'default' : booking.status === 'pending' ? 'outline' : 'destructive'}>
                             {booking.status}
                           </Badge>
                         </div>
