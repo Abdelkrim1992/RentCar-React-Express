@@ -92,7 +92,7 @@ const BookingManager: React.FC = () => {
     queryKey: ['/api/bookings'],
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/bookings');
-      return response.data as Booking[];
+      return response.data;
     }
   });
 
@@ -141,7 +141,7 @@ const BookingManager: React.FC = () => {
   };
 
   // Filter bookings based on search query
-  const filteredBookings = bookingsData?.filter(booking => {
+  const filteredBookings = bookingsData?.data ? bookingsData.data.filter((booking: Booking) => {
     if (!searchQuery.trim()) return true;
     
     const query = searchQuery.toLowerCase();
@@ -152,7 +152,7 @@ const BookingManager: React.FC = () => {
       booking.status.toLowerCase().includes(query) ||
       booking.id.toString().includes(query)
     );
-  });
+  }) : [];
 
   // Get status badge component
   const StatusBadge = ({ status }: { status: string }) => {
@@ -249,7 +249,7 @@ const BookingManager: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBookings.map((booking) => (
+                {filteredBookings.map((booking: Booking) => (
                   <TableRow key={booking.id}>
                     <TableCell className="font-medium">{booking.id}</TableCell>
                     <TableCell>
