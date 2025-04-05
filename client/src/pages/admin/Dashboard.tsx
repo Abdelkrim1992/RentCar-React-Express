@@ -19,6 +19,9 @@ const AdminDashboard: React.FC = () => {
   const { data: bookingsData, isLoading: bookingsLoading } = useQuery<ApiResponse<any>>({
     queryKey: ['/api/bookings'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
+    // Poll for new bookings every 15 seconds
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true
   });
 
   const { data: carsData, isLoading: carsLoading } = useQuery<ApiResponse<any>>({

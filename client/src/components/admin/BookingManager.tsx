@@ -88,12 +88,15 @@ const BookingManager: React.FC = () => {
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
 
   // Fetch all bookings
-  const { data: bookingsData, isLoading, isError } = useQuery({
+  const { data: bookingsData, isLoading, isError, refetch } = useQuery({
     queryKey: ['/api/bookings'],
     queryFn: async () => {
       const response = await apiRequest('GET', '/api/bookings');
       return response.data;
-    }
+    },
+    // Override the global settings to poll for new bookings every 10 seconds
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true
   });
 
   // Mutation to update booking status
@@ -222,14 +225,27 @@ const BookingManager: React.FC = () => {
             <CardTitle>Bookings</CardTitle>
             <CardDescription>Manage customer booking requests</CardDescription>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-            <Input 
-              placeholder="Search bookings..." 
-              className="max-w-sm pl-9"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => refetch()}
+              title="Refresh bookings"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={updateStatusMutation.isPending ? "animate-spin" : ""}>
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+              </svg>
+            </Button>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              <Input 
+                placeholder="Search bookings..." 
+                className="max-w-sm pl-9"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
