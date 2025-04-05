@@ -1,16 +1,12 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import * as dotenv from 'dotenv';
 
-// Direct database URL, not using env variable
-const DATABASE_URL = 'postgresql://car-rent_owner:npg_o2VYey1tzUXS@ep-billowing-art-ab1nuveo-pooler.eu-west-2.aws.neon.tech/car-rent?sslmode=require';
+// Load environment variables from .env file
+dotenv.config();
 
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: DATABASE_URL
-    }
-  }
-});
+// Use environment variable for database URL
+const prisma = new PrismaClient();
 
 async function main() {
   console.log("Starting database setup...");
