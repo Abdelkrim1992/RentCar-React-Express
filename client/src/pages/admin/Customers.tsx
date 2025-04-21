@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
+import { getQueryFn } from '@/lib/queryClient';
 import { format } from 'date-fns';
 import { useReduxPersist, useReduxData, useIsFreshData } from '@/hooks/use-redux-persistence';
 import { Search, User, Mail, Phone, Calendar, MapPin, Download, DollarSign } from 'lucide-react';
@@ -73,47 +73,18 @@ const Customers: React.FC = () => {
   const [isCustomerDetailsOpen, setIsCustomerDetailsOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Check if we have fresh data in Redux
+  const isFreshBookingsData = useIsFreshData('/api/bookings', 5 * 60 * 1000); // 5 minutes freshness
+  const reduxBookingsData = useReduxData('/api/bookings');
+  
   // Fetch all bookings
   const { data: bookingsData, isLoading, isError, refetch } = useQuery({
     queryKey: ['/api/bookings'],
-    queryFn: async () => {
-      // First try to get from cache
-      const cachedData = localStorage.getItem('ether_query_cache');
-      let bookingsCache = null;
-      
-      if (cachedData) {
-        try {
-          const parsedCache = JSON.parse(cachedData);
-          bookingsCache = parsedCache['/api/bookings'];
-        } catch (e) {
-          console.error('Error parsing cached bookings:', e);
-        }
-      }
-      
-      try {
-        // Always try to fetch fresh data
-        const response = await apiRequest('GET', '/api/bookings');
-        
-        // Store the fresh data in cache
-        const dataToCache = {
-          ...JSON.parse(localStorage.getItem('ether_query_cache') || '{}'),
-          '/api/bookings': response
-        };
-        localStorage.setItem('ether_query_cache', JSON.stringify(dataToCache));
-        
-        return response.data;
-      } catch (error) {
-        // If fetch fails but we have cached data, use it
-        if (bookingsCache) {
-          console.log('Using cached booking data due to fetch error');
-          return bookingsCache.data;
-        }
-        throw error;
-      }
-    },
-    staleTime: Infinity, // Never consider data stale
-    gcTime: Infinity, // Keep in cache indefinitely
-    retry: 3 // Retry 3 times if the request fails
+    queryFn: getQueryFn({ on401: 'returnNull' }),
+    staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    retry: 2, // Retry 2 times if the request fails
+    initialData: isFreshBookingsData ? { data: reduxBookingsData } : undefined
   });
 
   // Process bookings to get unique customers with accepted bookings
@@ -150,8 +121,8 @@ const Customers: React.FC = () => {
     });
   };
 
-  // Use our data persistence hook to persist booking data
-  usePersistData('/api/bookings', bookingsData?.data);
+  // Use our Redux persistence hook to persist booking data
+  useReduxPersist('/api/bookings', bookingsData?.data);
   
   const customers = bookingsData?.data 
     ? processCustomers(bookingsData.data)
