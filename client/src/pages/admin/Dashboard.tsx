@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Car, CreditCard, Settings, Users } from 'lucide-react';
 import AdminLayout from '@/components/admin/Layout';
+import { useReduxPersist, useReduxData, useIsFreshData } from '@/hooks/use-redux-persistence';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -15,22 +16,33 @@ interface ApiResponse<T> {
 }
 
 const AdminDashboard: React.FC = () => {
+  // Check if we have fresh data in Redux
+  const isFreshBookingsData = useIsFreshData('/api/bookings', 5 * 60 * 1000); // 5 minutes freshness
+  const isFreshCarsData = useIsFreshData('/api/cars', 5 * 60 * 1000);
+  const reduxBookingsData = useReduxData('/api/bookings');
+  const reduxCarsData = useReduxData('/api/cars');
+  
   // Fetch data for the dashboard
   const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useQuery<ApiResponse<any>>({
     queryKey: ['/api/bookings'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
-    // Poll for new bookings every 15 seconds
-    refetchInterval: 15000,
-    refetchOnWindowFocus: true
+    refetchInterval: 30000, // Poll for new bookings every 30 seconds
+    refetchOnWindowFocus: true,
+    initialData: isFreshBookingsData ? { success: true, data: reduxBookingsData } : undefined
   });
 
-  const { data: carsData, isLoading: carsLoading } = useQuery<ApiResponse<any>>({
+  const { data: carsData, isLoading: carsLoading, refetch: refetchCars } = useQuery<ApiResponse<any>>({
     queryKey: ['/api/cars'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
+    initialData: isFreshCarsData ? { success: true, data: reduxCarsData } : undefined
   });
 
   const bookings = bookingsData?.data || [];
   const cars = carsData?.data || [];
+  
+  // Persist data to Redux store for cross-page access
+  useReduxPersist('/api/bookings', bookings);
+  useReduxPersist('/api/cars', cars);
 
   // Calculate some stats
   const totalBookings = bookings.length;
@@ -59,11 +71,14 @@ const AdminDashboard: React.FC = () => {
             <Button 
               variant="ghost" 
               size="icon" 
-              onClick={() => refetchBookings()}
+              onClick={() => {
+                refetchBookings();
+                refetchCars();
+              }}
               title="Refresh dashboard data"
               className="ml-2"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin-slow">
                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
                 <path d="M3 3v5h5"></path>
               </svg>
@@ -153,8 +168,11 @@ const AdminDashboard: React.FC = () => {
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    onClick={() => refetchBookings()}
-                    title="Refresh bookings data"
+                    onClick={() => {
+                      refetchBookings();
+                      refetchCars();
+                    }}
+                    title="Refresh all data"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
