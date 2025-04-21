@@ -92,12 +92,47 @@ const BookingManager: React.FC = () => {
   const { data: bookingsData, isLoading, isError, refetch } = useQuery({
     queryKey: ['/api/bookings'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/api/bookings');
-      return response.data;
+      // First try to get from cache
+      const cachedData = localStorage.getItem('ether_query_cache');
+      let bookingsCache = null;
+      
+      if (cachedData) {
+        try {
+          const parsedCache = JSON.parse(cachedData);
+          bookingsCache = parsedCache['/api/bookings'];
+        } catch (e) {
+          console.error('Error parsing cached bookings:', e);
+        }
+      }
+      
+      try {
+        // Always try to fetch fresh data
+        const response = await apiRequest('GET', '/api/bookings');
+        
+        // Store the fresh data in cache
+        const dataToCache = {
+          ...JSON.parse(localStorage.getItem('ether_query_cache') || '{}'),
+          '/api/bookings': response
+        };
+        localStorage.setItem('ether_query_cache', JSON.stringify(dataToCache));
+        
+        return response.data;
+      } catch (error) {
+        // If fetch fails but we have cached data, use it
+        if (bookingsCache) {
+          console.log('Using cached booking data due to fetch error');
+          return bookingsCache.data;
+        }
+        throw error;
+      }
     },
     // Override the global settings to poll for new bookings every 10 seconds
     refetchInterval: 10000,
-    refetchOnWindowFocus: true
+    refetchOnWindowFocus: true,
+    staleTime: Infinity, // Never consider data stale
+    gcTime: Infinity, // Keep in cache indefinitely (gcTime replaces cacheTime in React Query v5)
+    retry: 3, // Retry 3 times if the request fails
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000) // Exponential backoff
   });
   
   // Function to manually refresh bookings with loading indicator
