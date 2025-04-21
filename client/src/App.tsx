@@ -1,15 +1,16 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { Provider as ReduxProvider } from "react-redux";
+import { store } from "./lib/store";
 import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import CarDetails from "@/pages/CarDetails";
 import BookingPage from "@/pages/BookingPage";
 import MyBookings from "@/pages/MyBookings";
-import { Suspense, lazy, useEffect } from "react";
+import { Suspense, lazy } from "react";
 import { AuthProvider, ProtectedRoute } from "@/hooks/use-auth";
-import { useRestoreData, forceDataPersistence } from "@/hooks/use-data-persistence";
 
 // Lazy load admin pages for better performance
 const AdminLogin = lazy(() => import("@/pages/admin/Login"));
@@ -92,47 +93,16 @@ function Router() {
   );
 }
 
-// Component that handles data persistence
-function DataPersistenceLayer() {
-  // Restore data on first load (24-hour max age)
-  const isRestored = useRestoreData(24 * 60 * 60 * 1000);
-  
-  // Set up periodic saving of data
-  useEffect(() => {
-    // Initial save
-    forceDataPersistence();
-    
-    // Set up interval to save data every 30 seconds
-    const saveInterval = setInterval(() => {
-      forceDataPersistence();
-    }, 30 * 1000);
-    
-    // Save data when page is closed
-    const handleBeforeUnload = () => {
-      forceDataPersistence();
-    };
-    
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    // Clean up
-    return () => {
-      clearInterval(saveInterval);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, []);
-  
-  return null;
-}
-
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <DataPersistenceLayer />
-        <Router />
-        <Toaster />
-      </AuthProvider>
-    </QueryClientProvider>
+    <ReduxProvider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <Router />
+          <Toaster />
+        </AuthProvider>
+      </QueryClientProvider>
+    </ReduxProvider>
   );
 }
 
