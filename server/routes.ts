@@ -149,6 +149,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get bookings by email (customer access)
+  app.get("/api/bookings/customer", async (req, res) => {
+    try {
+      const email = req.query.email as string;
+      
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is required to fetch bookings"
+        });
+      }
+      
+      // Find bookings by email
+      const bookings = await storage.getAllBookings();
+      const customerBookings = bookings.filter(booking => booking.email === email);
+      
+      res.status(200).json({
+        success: true,
+        data: customerBookings
+      });
+    } catch (error) {
+      console.error("Error fetching customer bookings:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch customer bookings",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+  
   // Get a booking by ID
   app.get("/api/bookings/:id", async (req, res) => {
     try {
@@ -218,7 +248,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // We don't want to fail the status update if email sending fails
       }
       
-      // Delete the booking if it was rejected
+      // We don't delete rejected bookings anymore so customers can see them
+      // Keeping this commented in case it needs to be reverted in the future
+      /*
       if (status === 'rejected') {
         try {
           const deleted = await storage.deleteBooking(id);
@@ -228,6 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Don't fail the overall operation if deletion fails
         }
       }
+      */
       
       res.status(200).json({
         success: true,
