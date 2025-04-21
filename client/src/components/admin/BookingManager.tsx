@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { format } from 'date-fns';
+import { usePersistData } from '@/hooks/use-data-persistence';
 import { 
   Check, 
   X, 
@@ -189,6 +190,9 @@ const BookingManager: React.FC = () => {
     }
   };
 
+  // Use our data persistence hook to persist booking data
+  usePersistData('/api/bookings', bookingsData?.data);
+  
   // Filter bookings based on search query
   const filteredBookings = bookingsData?.data ? bookingsData.data.filter((booking: Booking) => {
     if (!searchQuery.trim()) return true;
