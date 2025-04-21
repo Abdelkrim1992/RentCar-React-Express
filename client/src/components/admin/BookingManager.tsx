@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { format } from 'date-fns';
-import { useReduxPersist, useReduxData, useIsFreshData } from '@/hooks/use-redux-persistence';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '@/lib/store';
 import { 
   Check, 
   X, 
@@ -89,9 +90,15 @@ const BookingManager: React.FC = () => {
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Check if we have fresh data in Redux
-  const isFreshBookings = useIsFreshData('/api/bookings', 5 * 60 * 1000); // 5 minutes
-  const reduxBookings = useReduxData('/api/bookings');
+  const dispatch = useDispatch();
+  
+  // Get bookings data from Redux store
+  const { data: reduxBookings, timestamp: bookingsTimestamp } = useSelector(
+    (state: RootState) => state.data['/api/bookings'] || { data: [], timestamp: 0 }
+  );
+  
+  // Calculate if data is fresh (less than 5 minutes old)
+  const isFreshBookings = Date.now() - bookingsTimestamp < 5 * 60 * 1000; // 5 minutes
   
   // Fetch all bookings, with redux-based caching
   const { data: bookingsData, isLoading, isError, refetch } = useQuery({
@@ -103,7 +110,7 @@ const BookingManager: React.FC = () => {
         return response.data;
       } catch (error) {
         // If fetch fails but we have cached data in Redux, use it
-        if (reduxBookings) {
+        if (reduxBookings.length > 0) {
           console.log('Using cached booking data from Redux due to fetch error');
           return { data: reduxBookings };
         }
@@ -111,7 +118,7 @@ const BookingManager: React.FC = () => {
       }
     },
     // If we have fresh data in Redux, use it immediately instead of showing loading state
-    initialData: isFreshBookings && reduxBookings ? { data: reduxBookings } : undefined,
+    initialData: isFreshBookings && reduxBookings.length > 0 ? { data: reduxBookings } : undefined,
     // Only poll for new data if we don't have fresh data in Redux
     refetchInterval: isFreshBookings ? false : 10000,
     refetchOnWindowFocus: true,
@@ -157,13 +164,20 @@ const BookingManager: React.FC = () => {
           ...existingData,
           data: updatedBookings 
         });
+        
+        // Also update the Redux store with the new data
+        dispatch({
+          type: 'data/setData',
+          payload: {
+            key: '/api/bookings',
+            data: updatedBookings,
+            timestamp: Date.now()
+          }
+        });
       }
       
       // Still invalidate to ensure data is fresh, but do it after we've updated the cache
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
-      
-      // We don't need to call useReduxPersist here since it'll be called in the component body
-      // The useReduxPersist hook can only be called at the top level of the component
       
       toast({
         title: "Booking Updated",
@@ -203,8 +217,19 @@ const BookingManager: React.FC = () => {
     }
   };
 
-  // Use our data persistence hook to persist booking data in Redux
-  useReduxPersist('/api/bookings', bookingsData?.data);
+  // Update Redux store when bookings data changes
+  React.useEffect(() => {
+    if (bookingsData?.data) {
+      dispatch({
+        type: 'data/setData',
+        payload: {
+          key: '/api/bookings',
+          data: bookingsData.data,
+          timestamp: Date.now()
+        }
+      });
+    }
+  }, [bookingsData, dispatch]);
   
   // Filter bookings based on search query
   const filteredBookings = bookingsData?.data ? bookingsData.data.filter((booking: Booking) => {

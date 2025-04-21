@@ -1,14 +1,15 @@
 import React from 'react';
 import { Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { getQueryFn, queryClient } from '@/lib/queryClient';
+import { getQueryFn } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Car, CreditCard, Settings, Users } from 'lucide-react';
 import AdminLayout from '@/components/admin/Layout';
-import { useReduxPersist, useReduxData, useIsFreshData } from '@/hooks/use-redux-persistence';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '@/lib/store';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -16,11 +17,19 @@ interface ApiResponse<T> {
 }
 
 const AdminDashboard: React.FC = () => {
-  // Check if we have fresh data in Redux
-  const isFreshBookingsData = useIsFreshData('/api/bookings', 5 * 60 * 1000); // 5 minutes freshness
-  const isFreshCarsData = useIsFreshData('/api/cars', 5 * 60 * 1000);
-  const reduxBookingsData = useReduxData('/api/bookings');
-  const reduxCarsData = useReduxData('/api/cars');
+  const dispatch = useDispatch();
+  
+  // Get data from Redux store
+  const { data: reduxBookingsData, timestamp: bookingsTimestamp } = useSelector(
+    (state: RootState) => state.data['/api/bookings'] || { data: [], timestamp: 0 }
+  );
+  const { data: reduxCarsData, timestamp: carsTimestamp } = useSelector(
+    (state: RootState) => state.data['/api/cars'] || { data: [], timestamp: 0 }
+  );
+  
+  // Calculate if data is fresh (less than 5 minutes old)
+  const isFreshBookingsData = Date.now() - bookingsTimestamp < 5 * 60 * 1000;
+  const isFreshCarsData = Date.now() - carsTimestamp < 5 * 60 * 1000;
   
   // Fetch data for the dashboard
   const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useQuery<ApiResponse<any>>({
@@ -36,29 +45,34 @@ const AdminDashboard: React.FC = () => {
     queryFn: getQueryFn({ on401: 'returnNull' }),
     initialData: isFreshCarsData ? { success: true, data: reduxCarsData } : undefined
   });
+  
+  // Update Redux store when data changes
+  React.useEffect(() => {
+    if (bookingsData?.data) {
+      dispatch({
+        type: 'data/setData',
+        payload: {
+          key: '/api/bookings',
+          data: bookingsData.data,
+          timestamp: Date.now()
+        }
+      });
+    }
+    
+    if (carsData?.data) {
+      dispatch({
+        type: 'data/setData',
+        payload: {
+          key: '/api/cars',
+          data: carsData.data,
+          timestamp: Date.now()
+        }
+      });
+    }
+  }, [bookingsData, carsData, dispatch]);
 
   const bookings = bookingsData?.data || [];
   const cars = carsData?.data || [];
-  
-  // Persist data to Redux store for cross-page access
-  // We need to call hooks at the top level, not inside useEffect
-  React.useEffect(() => {
-    if (bookings.length > 0) {
-      // Instead of calling the hook, use dispatch directly
-      if (bookingsData?.data) {
-        queryClient.setQueryData(['/api/bookings'], { success: true, data: bookingsData.data });
-      }
-    }
-    if (cars.length > 0) {
-      if (carsData?.data) {
-        queryClient.setQueryData(['/api/cars'], { success: true, data: carsData.data });
-      }
-    }
-  }, [bookingsData, carsData]);
-  
-  // These hooks must be called unconditionally at the top level of the component
-  useReduxPersist('/api/bookings', bookingsData?.data || []);
-  useReduxPersist('/api/cars', carsData?.data || []);
 
   // Calculate some stats
   const totalBookings = bookings.length;

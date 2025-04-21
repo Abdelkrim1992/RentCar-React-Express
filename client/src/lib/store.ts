@@ -12,8 +12,16 @@ interface BookingState {
   }
 }
 
-// Initial state
-const initialState: BookingState = {
+// Data slice state type
+interface DataState {
+  [key: string]: {
+    data: any[];
+    timestamp: number;
+  }
+}
+
+// Initial state for booking slice
+const initialBookingState: BookingState = {
   bookings: null,
   cars: null,
   customers: null,
@@ -24,10 +32,13 @@ const initialState: BookingState = {
   }
 };
 
-// Create a slice for our data
+// Initial state for data slice
+const initialDataState: DataState = {};
+
+// Create a slice for our booking data
 const bookingSlice = createSlice({
   name: 'booking',
-  initialState,
+  initialState: initialBookingState,
   reducers: {
     setBookings: (state, action: PayloadAction<any[]>) => {
       state.bookings = action.payload;
@@ -54,13 +65,35 @@ const bookingSlice = createSlice({
   }
 });
 
+// Create a generic data slice for key-value storage
+const dataSlice = createSlice({
+  name: 'data',
+  initialState: initialDataState,
+  reducers: {
+    setData: (state, action: PayloadAction<{key: string; data: any[]; timestamp: number}>) => {
+      const { key, data, timestamp } = action.payload;
+      state[key] = {
+        data,
+        timestamp
+      };
+    },
+    removeData: (state, action: PayloadAction<string>) => {
+      const key = action.payload;
+      delete state[key];
+    },
+    clearAllData: () => initialDataState
+  }
+});
+
 // Export actions
 export const { setBookings, setCars, setCustomers, clearData } = bookingSlice.actions;
+export const { setData, removeData, clearAllData } = dataSlice.actions;
 
 // Configure the Redux store
 export const store = configureStore({
   reducer: {
-    booking: bookingSlice.reducer
+    booking: bookingSlice.reducer,
+    data: dataSlice.reducer
   }
 });
 
