@@ -1,4 +1,4 @@
-import { configureStore, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { configureStore, createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit';
 
 // Define types for our state
 interface BookingState {
@@ -20,6 +20,12 @@ interface DataState {
   }
 }
 
+// State types for selector memoization
+export interface CachedData {
+  data: any[];
+  timestamp: number;
+}
+
 // Initial state for booking slice
 const initialBookingState: BookingState = {
   bookings: null,
@@ -34,6 +40,12 @@ const initialBookingState: BookingState = {
 
 // Initial state for data slice
 const initialDataState: DataState = {};
+
+// Default empty data for selectors
+const DEFAULT_EMPTY_DATA: CachedData = {
+  data: [],
+  timestamp: 0
+};
 
 // Create a slice for our booking data
 const bookingSlice = createSlice({
@@ -105,3 +117,15 @@ export type AppDispatch = typeof store.dispatch;
 import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
 export const useAppDispatch = () => useDispatch<AppDispatch>();
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
+
+// Memoized selectors
+// Selector for the data state slice
+const selectDataState = (state: RootState) => state.data;
+
+// Create a memoized selector for a specific data key
+export const selectDataByKey = createSelector(
+  [selectDataState, (_state: RootState, key: string) => key],
+  (dataState, key): CachedData => {
+    return dataState[key] || DEFAULT_EMPTY_DATA;
+  }
+);

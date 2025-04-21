@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Car, CreditCard, Settings, Users } from 'lucide-react';
 import AdminLayout from '@/components/admin/Layout';
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '@/lib/store';
+import { RootState, selectDataByKey } from '@/lib/store';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -19,12 +19,12 @@ interface ApiResponse<T> {
 const AdminDashboard: React.FC = () => {
   const dispatch = useDispatch();
   
-  // Get data from Redux store
+  // Get data from Redux store using memoized selectors
   const { data: reduxBookingsData, timestamp: bookingsTimestamp } = useSelector(
-    (state: RootState) => state.data['/api/bookings'] || { data: [], timestamp: 0 }
+    (state: RootState) => selectDataByKey(state, '/api/bookings')
   );
   const { data: reduxCarsData, timestamp: carsTimestamp } = useSelector(
-    (state: RootState) => state.data['/api/cars'] || { data: [], timestamp: 0 }
+    (state: RootState) => selectDataByKey(state, '/api/cars')
   );
   
   // Calculate if data is fresh (less than 5 minutes old)

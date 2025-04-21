@@ -3,7 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { format } from 'date-fns';
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '@/lib/store';
+import { RootState, selectDataByKey } from '@/lib/store';
 import { 
   Check, 
   X, 
@@ -94,7 +94,7 @@ const BookingManager: React.FC = () => {
   
   // Get bookings data from Redux store
   const { data: reduxBookings, timestamp: bookingsTimestamp } = useSelector(
-    (state: RootState) => state.data['/api/bookings'] || { data: [], timestamp: 0 }
+    (state: RootState) => selectDataByKey(state, '/api/bookings')
   );
   
   // Calculate if data is fresh (less than 5 minutes old)
