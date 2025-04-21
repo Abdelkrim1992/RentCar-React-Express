@@ -135,8 +135,36 @@ const BookingManager: React.FC = () => {
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status, rejectionReason }: { id: number, status: string, rejectionReason?: string }) => 
       apiRequest('PATCH', `/api/bookings/${id}/status`, { status, rejectionReason }),
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      // Get existing bookings data
+      const existingData = queryClient.getQueryData<any>(['/api/bookings']);
+      
+      if (existingData && existingData.data) {
+        // Find the updated booking and update its status in the cache
+        const updatedBookings = existingData.data.map((booking: Booking) => {
+          if (booking.id === variables.id) {
+            return { 
+              ...booking, 
+              status: variables.status,
+              rejectionReason: variables.rejectionReason || booking.rejectionReason 
+            };
+          }
+          return booking;
+        });
+        
+        // Update the cache with the modified booking list
+        queryClient.setQueryData(['/api/bookings'], { 
+          ...existingData,
+          data: updatedBookings 
+        });
+      }
+      
+      // Still invalidate to ensure data is fresh, but do it after we've updated the cache
       queryClient.invalidateQueries({ queryKey: ['/api/bookings'] });
+      
+      // We don't need to call useReduxPersist here since it'll be called in the component body
+      // The useReduxPersist hook can only be called at the top level of the component
+      
       toast({
         title: "Booking Updated",
         description: "The booking status has been updated successfully.",

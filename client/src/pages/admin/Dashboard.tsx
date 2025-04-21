@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { getQueryFn } from '@/lib/queryClient';
+import { getQueryFn, queryClient } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,8 +41,24 @@ const AdminDashboard: React.FC = () => {
   const cars = carsData?.data || [];
   
   // Persist data to Redux store for cross-page access
-  useReduxPersist('/api/bookings', bookings);
-  useReduxPersist('/api/cars', cars);
+  // We need to call hooks at the top level, not inside useEffect
+  React.useEffect(() => {
+    if (bookings.length > 0) {
+      // Instead of calling the hook, use dispatch directly
+      if (bookingsData?.data) {
+        queryClient.setQueryData(['/api/bookings'], { success: true, data: bookingsData.data });
+      }
+    }
+    if (cars.length > 0) {
+      if (carsData?.data) {
+        queryClient.setQueryData(['/api/cars'], { success: true, data: carsData.data });
+      }
+    }
+  }, [bookingsData, carsData]);
+  
+  // These hooks must be called unconditionally at the top level of the component
+  useReduxPersist('/api/bookings', bookingsData?.data || []);
+  useReduxPersist('/api/cars', carsData?.data || []);
 
   // Calculate some stats
   const totalBookings = bookings.length;
