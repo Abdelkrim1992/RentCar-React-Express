@@ -511,7 +511,7 @@ const BookingPage: React.FC = () => {
             <p className="text-sm text-gray-600 mb-2">Booking Reference: <span className="font-semibold">#{bookingId}</span></p>
             <p className="text-sm text-gray-600">We've sent a confirmation email with all details to your email address.</p>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-0 flex flex-col sm:flex-row items-stretch">
             <Button
               variant="outline"
               onClick={() => navigate("/")}
@@ -519,9 +519,17 @@ const BookingPage: React.FC = () => {
               Return to Homepage
             </Button>
             <Button 
-              onClick={() => setShowSuccessDialog(false)}
+              onClick={() => {
+                // Store email in localStorage for easy access to bookings later
+                const email = form.getValues("email");
+                if (email) {
+                  localStorage.setItem('customerEmail', email);
+                }
+                // Navigate to my bookings page
+                navigate("/my-bookings");
+              }}
             >
-              View Booking Details
+              View All My Bookings
             </Button>
           </DialogFooter>
         </DialogContent>
