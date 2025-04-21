@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { format } from 'date-fns';
+import { usePersistData } from '@/hooks/use-data-persistence';
 import { Search, User, Mail, Phone, Calendar, MapPin, Download } from 'lucide-react';
 
 import Layout from '@/components/admin/Layout';
@@ -148,6 +149,9 @@ const Customers: React.FC = () => {
     });
   };
 
+  // Use our data persistence hook to persist booking data
+  usePersistData('/api/bookings', bookingsData?.data);
+  
   const customers = bookingsData?.data 
     ? processCustomers(bookingsData.data)
     : [];
@@ -363,75 +367,84 @@ const Customers: React.FC = () => {
       {/* Customer Details Dialog */}
       <Dialog open={isCustomerDetailsOpen} onOpenChange={setIsCustomerDetailsOpen}>
         {selectedCustomer && (
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>Customer Details</DialogTitle>
               <DialogDescription>
                 Complete information for {selectedCustomer.name}
               </DialogDescription>
             </DialogHeader>
             
-            <div className="py-4">
-              <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="py-4 flex-grow overflow-auto">
+              <div className="grid grid-cols-2 gap-4 mb-6 bg-gray-50 p-4 rounded-lg border">
                 <div className="flex flex-col gap-1">
                   <span className="text-sm text-gray-500">Name</span>
-                  <span className="font-medium">{selectedCustomer.name}</span>
+                  <span className="font-medium text-gray-900">{selectedCustomer.name}</span>
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-sm text-gray-500">Email</span>
-                  <span className="font-medium">{selectedCustomer.email}</span>
+                  <span className="font-medium text-gray-900">{selectedCustomer.email}</span>
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-sm text-gray-500">Phone</span>
-                  <span className="font-medium">{selectedCustomer.phone}</span>
+                  <span className="font-medium text-gray-900">{selectedCustomer.phone}</span>
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-sm text-gray-500">Total Bookings</span>
-                  <span className="font-medium">{selectedCustomer.totalBookings}</span>
+                  <span className="font-medium text-gray-900">{selectedCustomer.totalBookings}</span>
                 </div>
               </div>
               
-              <h3 className="text-lg font-semibold mb-3">Booking History</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold">Booking History</h3>
+                <span className="text-sm text-gray-500">{selectedCustomer.bookings.length} bookings total</span>
+              </div>
               
-              <div className="space-y-4 max-h-[400px] overflow-auto">
+              <div className="space-y-4 overflow-visible">
                 {selectedCustomer.bookings.map((booking) => (
-                  <Card key={booking.id} className="p-4 bg-gray-50">
+                  <Card key={booking.id} className="p-4 shadow-sm hover:shadow-md transition-shadow duration-200">
+                    <div className="border-l-4 border-l-primary pl-3 mb-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-primary">#{booking.id}</span>
+                        <Badge className={
+                          booking.status === 'accepted' ? 'bg-green-100 text-green-800 hover:bg-green-200' : 
+                          booking.status === 'rejected' ? 'bg-red-100 text-red-800 hover:bg-red-200' : 
+                          'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                        }>
+                          {booking.status.toUpperCase()}
+                        </Badge>
+                      </div>
+                      <span className="text-xs text-gray-500">Created: {formatDate(booking.createdAt.toString())}</span>
+                    </div>
+                    
                     <div className="grid grid-cols-2 gap-3">
                       <div className="flex flex-col gap-1">
-                        <span className="text-sm text-gray-500">Booking ID</span>
-                        <span className="text-sm font-medium">#{booking.id}</span>
+                        <span className="text-sm font-medium text-gray-700">Car</span>
+                        <span className="text-sm">{booking.car?.name || `Car #${booking.carId || 'Unknown'}`}</span>
+                        <span className="text-xs text-gray-500">Type: {booking.carType}</span>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <span className="text-sm text-gray-500">Status</span>
-                        <span className="text-sm font-medium">{booking.status.toUpperCase()}</span>
+                        <span className="text-sm font-medium text-gray-700">Dates</span>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="text-gray-400" size={12} />
+                          <span className="text-sm">
+                            {formatDate(booking.pickupDate)} - {formatDate(booking.returnDate)}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <span className="text-sm text-gray-500">Car</span>
-                        <span className="text-sm font-medium">{booking.car?.name || `Car #${booking.carId || 'Unknown'}`} ({booking.carType})</span>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-sm text-gray-500">Dates</span>
-                        <span className="text-sm font-medium">
-                          {formatDate(booking.pickupDate)} - {formatDate(booking.returnDate)}
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-sm text-gray-500">Pickup Location</span>
+                        <span className="text-sm font-medium text-gray-700">Pickup Location</span>
                         <div className="flex items-center gap-1">
                           <MapPin className="text-gray-400" size={12} />
                           <span className="text-sm">{booking.pickupLocation}</span>
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <span className="text-sm text-gray-500">Return Location</span>
+                        <span className="text-sm font-medium text-gray-700">Return Location</span>
                         <div className="flex items-center gap-1">
                           <MapPin className="text-gray-400" size={12} />
                           <span className="text-sm">{booking.returnLocation}</span>
                         </div>
-                      </div>
-                      <div className="col-span-2 flex flex-col gap-1">
-                        <span className="text-sm text-gray-500">Created</span>
-                        <span className="text-sm">{formatDate(booking.createdAt.toString())}</span>
                       </div>
                     </div>
                   </Card>
