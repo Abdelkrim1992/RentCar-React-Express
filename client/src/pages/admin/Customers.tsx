@@ -77,14 +77,16 @@ const Customers: React.FC = () => {
   const isFreshBookingsData = useIsFreshData('/api/bookings', 5 * 60 * 1000); // 5 minutes freshness
   const reduxBookingsData = useReduxData('/api/bookings');
   
-  // Fetch all bookings
+  // Fetch all bookings with Redux persistence support
   const { data: bookingsData, isLoading, isError, refetch } = useQuery({
     queryKey: ['/api/bookings'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
-    staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
+    staleTime: 3 * 60 * 1000, // Consider data stale after 3 minutes for more fresh data
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     retry: 2, // Retry 2 times if the request fails
-    initialData: isFreshBookingsData ? { data: reduxBookingsData } : undefined
+    initialData: isFreshBookingsData ? { success: true, data: reduxBookingsData } : undefined,
+    refetchOnWindowFocus: true, // Refresh when window regains focus
+    refetchOnMount: true // Always refresh when component mounts
   });
 
   // Process bookings to get unique customers with accepted bookings
@@ -240,7 +242,7 @@ const Customers: React.FC = () => {
               disabled={isRefreshing}
               title="Refresh customers"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isRefreshing ? "animate-spin" : ""}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isRefreshing ? "animate-spin-slow" : ""}>
                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
                 <path d="M3 3v5h5"></path>
               </svg>
@@ -348,83 +350,114 @@ const Customers: React.FC = () => {
             </DialogHeader>
             
             <div className="py-4 flex-grow overflow-auto">
-              <div className="grid grid-cols-2 gap-4 mb-6 bg-gray-50 p-4 rounded-lg border">
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-gray-500">Name</span>
-                  <span className="font-medium text-gray-900">{selectedCustomer.name}</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-gray-500">Email</span>
-                  <span className="font-medium text-gray-900">{selectedCustomer.email}</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-gray-500">Phone</span>
-                  <span className="font-medium text-gray-900">{selectedCustomer.phone}</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-gray-500">Total Bookings</span>
-                  <span className="font-medium text-gray-900">{selectedCustomer.totalBookings}</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold">Booking History</h3>
-                <span className="text-sm text-gray-500">{selectedCustomer.bookings.length} bookings total</span>
-              </div>
-              
-              <div className="space-y-4 overflow-visible">
-                {selectedCustomer.bookings.map((booking) => (
-                  <Card key={booking.id} className="p-4 shadow-sm hover:shadow-md transition-shadow duration-200">
-                    <div className="border-l-4 border-l-primary pl-3 mb-2 flex items-center justify-between">
+              {/* Customer Profile Card */}
+              <Card className="mb-6">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Profile Information</CardTitle>
+                  <CardDescription>Customer contact and booking details</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-primary">#{booking.id}</span>
-                        <Badge className={
-                          booking.status === 'accepted' ? 'bg-green-100 text-green-800 hover:bg-green-200' : 
-                          booking.status === 'rejected' ? 'bg-red-100 text-red-800 hover:bg-red-200' : 
-                          'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                        }>
-                          {booking.status.toUpperCase()}
-                        </Badge>
+                        <User className="text-gray-400" size={16} />
+                        <span className="text-sm font-medium">Name</span>
                       </div>
-                      <span className="text-xs text-gray-500">Created: {formatDate(booking.createdAt.toString())}</span>
+                      <span className="pl-6 text-base">{selectedCustomer.name}</span>
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-sm font-medium text-gray-700">Car</span>
-                        <span className="text-sm">{booking.car?.name || `Car #${booking.carId || 'Unknown'}`}</span>
-                        <span className="text-xs text-gray-500">Type: {booking.carType}</span>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <Mail className="text-gray-400" size={16} />
+                        <span className="text-sm font-medium">Email</span>
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-sm font-medium text-gray-700">Dates</span>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="text-gray-400" size={12} />
-                          <span className="text-sm">
-                            {formatDate(booking.pickupDate)} - {formatDate(booking.returnDate)}
-                          </span>
-                        </div>
+                      <span className="pl-6 text-base">{selectedCustomer.email}</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <Phone className="text-gray-400" size={16} />
+                        <span className="text-sm font-medium">Phone</span>
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-sm font-medium text-gray-700">Pickup Location</span>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="text-gray-400" size={12} />
-                          <span className="text-sm">{booking.pickupLocation}</span>
-                        </div>
+                      <span className="pl-6 text-base">{selectedCustomer.phone}</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="text-gray-400" size={16} />
+                        <span className="text-sm font-medium">Total Bookings</span>
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-sm font-medium text-gray-700">Return Location</span>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="text-gray-400" size={12} />
-                          <span className="text-sm">{booking.returnLocation}</span>
-                        </div>
+                      <div className="pl-6 flex items-center">
+                        <span className="text-base font-bold">{selectedCustomer.totalBookings}</span>
+                        <span className="text-xs text-gray-500 ml-2">Last booking on {formatDate(selectedCustomer.lastBookingDate)}</span>
                       </div>
                     </div>
-                  </Card>
-                ))}
-              </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Booking History Card */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">Booking History</CardTitle>
+                      <CardDescription>Past and upcoming reservations</CardDescription>
+                    </div>
+                    <Badge variant="outline">{selectedCustomer.bookings.length} bookings total</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {selectedCustomer.bookings.map((booking) => (
+                    <Card key={booking.id} className="p-4 border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+                      <div className="border-l-4 border-l-primary pl-3 mb-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-primary">#{booking.id}</span>
+                          <Badge variant={
+                            booking.status === 'accepted' ? 'default' : 
+                            booking.status === 'rejected' ? 'destructive' : 
+                            'outline'
+                          }>
+                            {booking.status.toUpperCase()}
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-gray-500">Created: {formatDate(booking.createdAt.toString())}</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm font-medium text-gray-700">Car</span>
+                          <span className="text-sm">{booking.car?.name || `Car #${booking.carId || 'Unknown'}`}</span>
+                          <span className="text-xs text-gray-500">Type: {booking.carType}</span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm font-medium text-gray-700">Dates</span>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="text-gray-400" size={12} />
+                            <span className="text-sm">
+                              {formatDate(booking.pickupDate)} - {formatDate(booking.returnDate)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm font-medium text-gray-700">Pickup Location</span>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="text-gray-400" size={12} />
+                            <span className="text-sm">{booking.pickupLocation}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm font-medium text-gray-700">Return Location</span>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="text-gray-400" size={12} />
+                            <span className="text-sm">{booking.returnLocation}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </CardContent>
+              </Card>
             </div>
             
-            <CardFooter className="flex justify-between pt-4 border-t">
+            <CardFooter className="flex justify-between pt-4 border-t mt-4">
               <Button 
                 variant="outline" 
                 onClick={() => window.open(`mailto:${selectedCustomer.email}`)}
