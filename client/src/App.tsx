@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import CarDetails from "@/pages/CarDetails";
 import BookingPage from "@/pages/BookingPage";
+import MyBookings from "@/pages/MyBookings";
 import { Suspense, lazy } from "react";
 import { AuthProvider, ProtectedRoute } from "@/hooks/use-auth";
 
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/cars/:id" component={CarDetails} />
       <Route path="/booking/:carId" component={BookingPage} />
+      <Route path="/my-bookings" component={MyBookings} />
       
       {/* Admin login route */}
       <Route path="/admin/login">

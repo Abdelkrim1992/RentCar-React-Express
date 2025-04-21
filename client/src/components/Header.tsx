@@ -82,6 +82,7 @@ const NavLinks: React.FC = () => {
       <NavLink href="#cars" label="Fleet" />
       <NavLink href="#features" label="Features" />
       <NavLink href="#booking" label="Book Now" />
+      <NavLink href="/my-bookings" label="My Bookings" isPage={true} />
       <NavLink href="#testimonials" label="Testimonials" />
     </>
   );
@@ -90,13 +91,24 @@ const NavLinks: React.FC = () => {
 interface NavLinkProps {
   href: string;
   label: string;
+  isPage?: boolean;
 }
 
-const NavLink: React.FC<NavLinkProps> = ({ href, label }) => {
+const NavLink: React.FC<NavLinkProps> = ({ href, label, isPage = false }) => {
   return (
     <a 
       href={href} 
       className="font-work font-medium relative group"
+      // Use regular navigation for page links, otherwise keep the hash behavior
+      onClick={isPage ? undefined : (e) => {
+        if (href.startsWith('#')) {
+          e.preventDefault();
+          const element = document.querySelector(href);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+          }
+        }
+      }}
     >
       {label}
       <span className="absolute left-0 bottom-[-4px] w-0 h-[2px] bg-[#D2FF3A] transition-all duration-300 group-hover:w-full"></span>
