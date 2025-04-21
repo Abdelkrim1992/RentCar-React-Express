@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { format } from 'date-fns';
-import { usePersistData } from '@/hooks/use-data-persistence';
-import { Search, User, Mail, Phone, Calendar, MapPin, Download } from 'lucide-react';
+import { useReduxPersist, useReduxData, useIsFreshData } from '@/hooks/use-redux-persistence';
+import { Search, User, Mail, Phone, Calendar, MapPin, Download, DollarSign } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 import Layout from '@/components/admin/Layout';
 import { Button } from '@/components/ui/button';
