@@ -10,7 +10,8 @@ import {
   Home, 
   LogOut, 
   User,
-  Wrench
+  Wrench,
+  Users
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -41,6 +42,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           <NavLink href="/admin/cars" icon={<Car size={18} />} label="Cars" isActive={location === '/admin/cars'} />
           <NavLink href="/admin/availability" icon={<Wrench size={18} />} label="Car Availability" isActive={location === '/admin/availability'} />
           <NavLink href="/admin/bookings" icon={<Calendar size={18} />} label="Bookings" isActive={location === '/admin/bookings'} />
+          <NavLink href="/admin/customers" icon={<Users size={18} />} label="Customers" isActive={location === '/admin/customers'} />
           <NavLink href="/admin/stats" icon={<BarChart size={18} />} label="Statistics" isActive={location === '/admin/stats'} />
           <NavLink href="/admin/settings" icon={<Settings size={18} />} label="Settings" isActive={location === '/admin/settings'} />
           <NavLink href="/admin/profile" icon={<User size={18} />} label="Profile" isActive={location === '/admin/profile'} />
@@ -90,6 +92,16 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           <Link href="/admin/availability">
             <Button variant="ghost" size="icon">
               <Wrench size={20} />
+            </Button>
+          </Link>
+          <Link href="/admin/bookings">
+            <Button variant="ghost" size="icon">
+              <Calendar size={20} />
+            </Button>
+          </Link>
+          <Link href="/admin/customers">
+            <Button variant="ghost" size="icon">
+              <Users size={20} />
             </Button>
           </Link>
           <Link href="/admin/settings">
