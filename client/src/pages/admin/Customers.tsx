@@ -193,17 +193,18 @@ const Customers: React.FC = () => {
   if (isLoading) {
     return (
       <Layout>
-        <Card>
-          <CardHeader>
-            <CardTitle>Customers</CardTitle>
-            <CardDescription>Loading customer information...</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-center justify-center">
-              <div className="w-8 h-8 border-2 border-t-[#6843EC] border-r-transparent rounded-full animate-spin"></div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="p-6 space-y-4">
+          <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
+          <p className="text-muted-foreground">Manage your customer information</p>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="h-64 flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-t-[#6843EC] border-r-transparent rounded-full animate-spin"></div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </Layout>
     );
   }
@@ -211,42 +212,53 @@ const Customers: React.FC = () => {
   if (isError) {
     return (
       <Layout>
-        <Card>
-          <CardHeader>
-            <CardTitle>Customers</CardTitle>
-            <CardDescription>Could not load customer data</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="p-6 text-center">
-              <p className="text-red-500">An error occurred while fetching customer data.</p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="p-6 space-y-4">
+          <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
+          <p className="text-muted-foreground">Manage your customer information</p>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="p-6 text-center">
+                <p className="text-red-500">An error occurred while fetching customer data.</p>
+                <Button 
+                  className="mt-4" 
+                  onClick={() => refetch()}
+                >
+                  Try Again
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </Layout>
     );
   }
 
   return (
     <Layout>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+      <div className="p-6 space-y-4">
+        {/* Header section moved outside the card */}
+        <div className="flex flex-col space-y-4 sm:flex-row sm:justify-between sm:space-y-0">
           <div>
-            <CardTitle>Customers</CardTitle>
-            <CardDescription>Manage your customer information</CardDescription>
+            <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
+            <p className="text-muted-foreground">Manage your customer information</p>
           </div>
-          <div className="flex items-center gap-2">
+          
+          <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-x-2 sm:space-y-0">
             <Button 
               variant="outline" 
               size="icon" 
               onClick={refreshCustomers}
               disabled={isRefreshing}
               title="Refresh customers"
+              className="w-10 h-10 sm:w-10 sm:h-10"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isRefreshing ? "animate-spin-slow" : ""}>
                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
                 <path d="M3 3v5h5"></path>
               </svg>
             </Button>
+            
             <Button 
               variant="outline" 
               size="sm" 
@@ -255,18 +267,24 @@ const Customers: React.FC = () => {
             >
               <Download size={16} /> Export CSV
             </Button>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-              <Input 
-                placeholder="Search customers..." 
-                className="max-w-sm pl-9"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+        
+        {/* Search bar in its own row on mobile, top right on larger screens */}
+        <div className="w-full sm:max-w-md ml-auto">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+            <Input 
+              placeholder="Search customers..." 
+              className="pl-9"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+      <Card>
+        <CardContent className="pt-6">
           {filteredCustomers.length > 0 ? (
             <Table>
               <TableCaption>
